@@ -1,0 +1,16 @@
+FLAGS_DEBUG = `pkg-config --cflags itpp_debug`
+FLAGS_OPT   = `pkg-config --cflags itpp`
+
+LIBS_DEBUG  = `pkg-config --libs itpp_debug`
+LIBS_OPT    = `pkg-config --libs itpp`
+
+
+#---------------------------------------------------------------------#
+# Utils.h Transmitter.cpp
+Transmitter: Utils.h Transmitter.cpp
+	g++ $(FLAGS_OPT) -o Transmitter Utils.h Transmitter.cpp $(LIBS_OPT)
+
+
+# Utils.h Transmitter.cpp
+#Transmitter: Utils.h Test.cpp
+#	g++ $(FLAGS_OPT) -o Transmitter Utils.h Test.cpp $(LIBS_OPT)

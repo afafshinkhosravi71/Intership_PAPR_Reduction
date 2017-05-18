@@ -1,0 +1,10 @@
+#IncludeRegexLine: ^[ 	]*#[ 	]*(include|import)[ 	]*[<"]([^">]+)([">])
+
+#IncludeRegexScan: ^.*$
+
+#IncludeRegexComplain: ^$
+
+#IncludeRegexTransform: 
+
+/home/herve/Documents/Script_GNURadio/IEEE_802.11/gr-ieee802-11/build/swig/ieee802_11_swig_swig_2d0df.cpp
+
