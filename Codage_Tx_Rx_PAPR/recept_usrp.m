@@ -1,6 +1,6 @@
 load test_xt_16qam_12.mat
 %x=read_complex_binary('receipt_siso_16qam12_1.raw');
-%plot(real(x))
+plot(real(xt))
 %ginput(2)
 %xt=x(ans(1):ans(2));
 %plot(real(xt))

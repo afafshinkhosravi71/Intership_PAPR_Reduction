@@ -49,7 +49,7 @@ int main()
   
 	//Declarations of scalars and vectors: 
   	int i,x;
-  	double noise_variance;
+  	//double noise_variance;
 	
 	//bvec is a vector containing bits
   	bvec transmitted_bits;                  
@@ -245,7 +245,7 @@ int main()
         ff1.close();	
 
         // zeros to be to be added at the end of the transmission in order to be used by the MXA to start triggering in the RFBurst mode and in order to be used by the synch alog in the Emidate 
-	// 30000 was chosen carefully to be compatabile with the synchronysation algo used at the receiption side and the interframe distance in case of 6 Mbps 
+	// 30000 was chosen carefully to be compatabile with the synchronyzation algo used at the receiption side and the interframe distance in case of 6 Mbps 
 	PPDU_Frame_Final.ins(PPDU_Frame_Final.length(), zeros_c(30000));
 	
 	// now we will add an additional ofdm symbol that contains the number of frames 
@@ -255,7 +255,7 @@ int main()
 	// this field looks like the signal field but with no data rate or parity bit subfields
 	// this field will be added only once after the signal field
 	 
-	cvec frame_nbr_field=frames_nbr_field(nbr_frames);
+	cvec frame_nbr_field = frames_nbr_field(nbr_frames);
 	PPDU_Frame_Final.ins(400,frame_nbr_field);
 	//cout<<frame_nbr_field.length()<<endl;
 	
@@ -264,6 +264,156 @@ int main()
     
 	cout << " Programm execution time : " << tt.toc() << " seconds" << endl;
 
+
+	/********************************************************************************************************************/
+	/********************************************************************************************************************/
+
+	// Declare the it_file class
+	it_file ff;
+        //it_file ff1;
+	bvec received_bits_final;
+        cvec received_pilot_symbols_final;
+	//cvec ofdm_received_symb;
+
+	// File permition
+	int res = system("sudo chmod 777 Sent_Frame.it");
+	cout << "result system(sudo chmod 777 Sent_Frame.it) = " << res << endl;
+
+	// Open the file
+	ff.open("Sent_Frame.it");
+
+	// Read the variable freq_cor_IQData from the file. Put result in vector ofdm_received_symb.
+	ff >> Name("PPDU_Frame_Final") >> ofdm_received_symb;
+	ff.close();
+	
+	//intially is set to zero then the real number of frames will be determined from the received frames_nbr_field that was added at the end of the transmission
+	nbr_frames = 1;
+	frame_nbr_field = ofdm_received_symb(400,400+80-1);
+	// suppress this part
+	ofdm_received_symb.del(400,400+80-1);
+
+	/****************** Receiver Side ********************************/
+	for (int p=0;p<nbr_frames;p++)
+	{
+		cout<<"Receiving frame number : "<<p+1<<endl;
+		// short sequence recuperation length = 160
+		cvec received_short_squence = ofdm_received_symb.left(160);
+
+		//AGC for every frame: (Average value criterion)
+		double mean1 = 0.8663;					//This is the mean value of the transmitted Short Training Seq.
+		double mean2 = mean(abs(received_short_squence));
+		double AGC = mean1/mean2;
+		ofdm_received_symb=AGC*ofdm_received_symb;
+		cout<< "AGC for every frame = " << AGC<<endl;
+		
+		// long training sequence recuperation length = 160
+		cvec received_long_squence=ofdm_received_symb(160,319);
+
+		// Signal field recuperation length = 80
+		cvec received_signal_field = ofdm_received_symb(320,399);
+
+
+		//Channel estimation
+		cvec Hh_LS = LS_estimator(received_long_squence);
+		//cvec Hh_MMSE=MMSE_estimator(received_long_squence);
+
+		//choose one of these methods
+		cvec Hhat = Hh_LS;
+		//cvec Hhat=Hh_MMSE;
+
+		// Noise variance of the received long training seq
+		double N0 = noise_variance(received_long_squence); 
+		//cout << N0 << endl;
+
+		//a zero value poses problems for the channel estimation
+		if (N0==0)		
+			N0=1e-6;
+		
+		//update the number of frames and get real number of frames 
+		if (p==0)
+			nbr_frames = frame_nbr_receiver(frame_nbr_field, N0, Hhat);
+		cout<<"Number of frames: "<< nbr_frames << endl;
+
+		// received data rate recuperation
+		ivec output = Receiver_data_rate(received_signal_field, N0, Hhat);
+
+		int rec_data_rate=output(0);			// received  data rate must be one of these values (6, 9, 12, 18, 24, 36 ,48,54 )(Mb/s)
+		int rec_length=output(1);			// received length 
+		cout <<"data rate : "<< rec_data_rate << endl << "length : "<< rec_length << endl; //tested ok
+
+		//this function will set all the parameters according to the data rate value determined by the receiver
+		data_rate_choice( &R , &Nbpsc, &rec_data_rate, &Ncbps, &Ndbps);	
+
+		int Nsys_data;					//the number of OFDM symbols in data field
+		int Ndata;					//the number of bits in the DATA field
+		
+		// 16 bit of the service field and 6 bits of the tail + length of the data
+		Nsys_data=ceil((16 + 8*rec_length + 6)/(double)Ndbps);		
+		
+		Ndata=Nsys_data*Ndbps;
+		
+		cout<<"Nsys_data : "<<Nsys_data+5<<endl;
+		//cout<<"Ndata : "<<Ndata<<endl;
+
+		// added to separate two consecutive frames you have to use the same value used at the receiver side				
+		int nbr_zeros=0;														
+
+		// data field for this frame (without the five first symbols)
+		cvec received_data_field = ofdm_received_symb(5*80,5*80+Nsys_data*80-1);	
+		//cout<<ofdm_received_symb(1000+400+Nsys_data*80-1,1000+400+Nsys_data*80+1);// in case of there were 1000 zeros had been added
+
+		// 80*5 is the first five ofdm symbols ; nbr_zeros sample were added to separate two consecutive frames
+		ofdm_received_symb.del(0,nbr_zeros+80*5+Nsys_data*80-1);				
+
+		// OFDM demodulation
+		cvec ofdm_demodulated_symb=ofdm_demodulation(received_data_field,Nfft ,Ncp,1);
+		
+		//Equalization
+		cvec Equalized_output=Equalization(ofdm_demodulated_symb,Hhat);
+
+		//index starts from 1 for the data field
+		int index=1;														
+		cvec received_data_symbols=Pilot_Data_separation(Equalized_output, N_SD ,Nfft, index);
+		
+		//index starts from 1 for the received pilote field
+		int index2 = 0;
+                cvec received_pilot_symbols=Pilot_Data_separation(Equalized_output, N_SD ,Nfft, index2);
+
+		vec soft_demodulated_symbols=soft_demodulation(received_data_symbols, Nbpsc,N0);
+
+		vec	received_symbols_deinterleaved=deinterleaver(soft_demodulated_symbols, Ncbps,Nbpsc);
+	
+		bvec decoded_bits= Punct_Conv_Decode(received_symbols_deinterleaved, R);
+
+		bvec descrambled_bits= descrambler(decoded_bits,State);
+	
+		// flip all bits (that is, convert zeros to ones, and ones to zeros) for the BPSK
+		if (Nbpsc==1)
+			for (int i = 0; i < descrambled_bits.length(); i++)  
+				descrambled_bits(i) = (descrambled_bits(i) == 0 ? 1 : 0);	
+	
+		// Removing the service bits, the tail, and pad bits		
+		bvec received_bits=descrambled_bits(16,16+8*rec_length-1);
+	
+		// Regrouping the received bits 
+		if (p == 0) {
+			received_bits_final=received_bits;
+                        received_pilot_symbols_final=received_pilot_symbols;
+                }
+		else {
+			received_bits_final.ins(received_bits_final.length(),received_bits);
+		        received_pilot_symbols_final.ins(received_pilot_symbols_final.length(),received_pilot_symbols);
+		}
+        	cout<<"end of for loop for iteration number"<<p<<endl;
+	
+	 }//end for 
+	ff1.open("received_pilots_file.it");
+        ff1 << Name("rec_pilots") << received_pilot_symbols_final;
+	ff1 << Name("number_of_frames") << nbr_frames;
+        //ff1 << Name("Nsys_data") << Nsys_data;
+        ff1.close();
+	// Converting the file into its original form
+	binary2file_converter(received_bits_final);	
 	return 0;
 }
 

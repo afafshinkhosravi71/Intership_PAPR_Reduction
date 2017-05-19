@@ -487,6 +487,7 @@ cvec preamble(void)
 	
 	Short_training_seq_time_extended=window(Short_training_seq_time_extended);	//window function
 
+	cout << "Mean value of transmitted short training seq = " << mean(abs(Short_training_seq_time_extended)) << endl;
 	//Random test : tested with Table L-4\97
 	//cout << "Time domain representation of the short sequence " << endl;
 	//for (int i=0; i<10;i++)
@@ -1013,7 +1014,7 @@ cvec LS_estimator(const cvec &rec_long_squence_CP)
 	double norm_factor=sqrt(double(Nfft));								// ofdm normalizing factor
 	cvec rec_long_squence(128);
 	rec_long_squence=rec_long_squence_CP(32,159);				// without the CP
-	//cout << "rec_long_squence without CP = " << rec_long_squence.length()<<endl;// tested ok
+	cout << "rec_long_squence without CP = " << rec_long_squence.length()<<endl;// tested ok
 	
 	cvec rec_long_squence1=rec_long_squence.left(64);		    // 1st received symbol of the long training sequence without the CP
 	cvec rec_long_squence2=rec_long_squence.right(64);			// 2nd received symbol of the long training sequence without the CP
@@ -1024,13 +1025,13 @@ cvec LS_estimator(const cvec &rec_long_squence_CP)
 	dem_long_squence_temp=fft(rec_long_squence1, Nfft);										
 	dem_long_squence1=concat(dem_long_squence_temp.right(32),dem_long_squence_temp.left(32));		//to compensate the inversion at the ifft stage	
 	dem_long_squence1=dem_long_squence1/norm_factor;
-	//cout << "dem_long_squence1 = " << dem_long_squence1.left(10) <<" length "<<dem_long_squence1.length()<<endl;// tested ok
+	cout << "dem_long_squence1 = " << dem_long_squence1.left(10) <<" length "<<dem_long_squence1.length()<<endl;// tested ok
 	
 	// demodulated long training sequence symbol #2
 	dem_long_squence_temp=fft(rec_long_squence2, Nfft);										
 	dem_long_squence2=concat(dem_long_squence_temp.right(32),dem_long_squence_temp.left(32));		//to compensate the inversion at the ifft stage	
 	dem_long_squence2=dem_long_squence2/norm_factor;
-	//cout << "dem_long_squence2 = " << dem_long_squence2.left(10)<<" length "<<dem_long_squence2.length()<<endl;// tested ok
+	cout << "dem_long_squence2 = " << dem_long_squence2.left(10)<<" length "<<dem_long_squence2.length()<<endl;// tested ok
 	
 	// Long Training Sequence
 	cvec Long_training_seq = " 0 0 0 0 0 0  1 1 -1 -1 1 1 -1 1 -1 1 1 1 1 1 1 -1 -1 1 1 -1 1 -1 1 1 1 1 0 1 -1 -1 1 1 -1 1 -1 1 -1 -1 -1 -1 -1 1 1 -1 -1 1 -1 1 -1 1 1 1 1 0 0 0 0 0  "; 
@@ -1509,6 +1510,8 @@ cvec frames_nbr_field(int &len)
 		temp(leng.length()-1-i)=leng(i);
 	leng=temp;
 
+	//frame number field is not scrambled
+
 	//Coding the frame number field
 	bvec coded_frame_nbr_bits;
 	double R =1/2.0;
@@ -1553,18 +1556,24 @@ int frame_nbr_receiver(const cvec &received_frame_nbr_field,const double &N0,con
 	int N_SD=48;
 	int Nfft=64;
 	double R=1/2.0;
-	
+	// OFDM demodulation
 	cvec ofdm_demodulated_frame_nbr=ofdm_demodulation(received_frame_nbr_field,Nfft ,Ncp,1);
-	cvec Equalized_output=Equalization(ofdm_demodulated_frame_nbr,Hhat);//equalization 
-
+	//equalization
+	cvec Equalized_output=Equalization(ofdm_demodulated_frame_nbr,Hhat);	 
+	// Pilote Data separation
 	cvec ofdm_demodulated_frame_nbr_data_carriers=Pilot_Data_separation(Equalized_output, N_SD ,Nfft, index);
+	// soft demodulation
 	vec soft_demodulated_symbols=soft_demodulation(ofdm_demodulated_frame_nbr_data_carriers, Nbpsc,N0);
+	//deinterleaver
 	vec received_symbols_deinterleaved=deinterleaver(soft_demodulated_symbols,Ncbps,Nbpsc);
+	//decoder
 	bvec decoded_bits= Punct_Conv_Decode(received_symbols_deinterleaved, R);
+
 	//frame number field was not scrambled
 
+	//flip all bits (that is, convert zeros to ones, and ones to zeros) // for BPSK
 	for (int i = 0; i < decoded_bits.length(); i++)  
-		decoded_bits(i) = (decoded_bits(i) == 0 ? 1 : 0);	//flip all bits (that is, convert zeros to ones, and ones to zeros) // for BPSK
+		decoded_bits(i) = (decoded_bits(i) == 0 ? 1 : 0);	
 	
 	bvec LENGTH=decoded_bits;	//Length
 
@@ -1574,7 +1583,8 @@ int frame_nbr_receiver(const cvec &received_frame_nbr_field,const double &N0,con
 		temp(LENGTH.length()-1-i)=LENGTH(i);
 	LENGTH=temp;
 
-	int leng=bin2dec(LENGTH);	//convert the number of frames  into the decimal representation
+	//convert the number of frames  into the decimal representation
+	int leng=bin2dec(LENGTH);	
 	
 	return leng;
 }
