@@ -1014,7 +1014,7 @@ cvec LS_estimator(const cvec &rec_long_squence_CP)
 	double norm_factor=sqrt(double(Nfft));								// ofdm normalizing factor
 	cvec rec_long_squence(128);
 	rec_long_squence=rec_long_squence_CP(32,159);				// without the CP
-	cout << "rec_long_squence without CP = " << rec_long_squence.length()<<endl;// tested ok
+	//cout << "rec_long_squence without CP = " << rec_long_squence.length()<<endl;// tested ok
 	
 	cvec rec_long_squence1=rec_long_squence.left(64);		    // 1st received symbol of the long training sequence without the CP
 	cvec rec_long_squence2=rec_long_squence.right(64);			// 2nd received symbol of the long training sequence without the CP
@@ -1025,13 +1025,13 @@ cvec LS_estimator(const cvec &rec_long_squence_CP)
 	dem_long_squence_temp=fft(rec_long_squence1, Nfft);										
 	dem_long_squence1=concat(dem_long_squence_temp.right(32),dem_long_squence_temp.left(32));		//to compensate the inversion at the ifft stage	
 	dem_long_squence1=dem_long_squence1/norm_factor;
-	cout << "dem_long_squence1 = " << dem_long_squence1.left(10) <<" length "<<dem_long_squence1.length()<<endl;// tested ok
+	//cout << "dem_long_squence1 = " << dem_long_squence1.left(10) <<" length "<<dem_long_squence1.length()<<endl;// tested ok
 	
 	// demodulated long training sequence symbol #2
 	dem_long_squence_temp=fft(rec_long_squence2, Nfft);										
 	dem_long_squence2=concat(dem_long_squence_temp.right(32),dem_long_squence_temp.left(32));		//to compensate the inversion at the ifft stage	
 	dem_long_squence2=dem_long_squence2/norm_factor;
-	cout << "dem_long_squence2 = " << dem_long_squence2.left(10)<<" length "<<dem_long_squence2.length()<<endl;// tested ok
+	//cout << "dem_long_squence2 = " << dem_long_squence2.left(10)<<" length "<<dem_long_squence2.length()<<endl;// tested ok
 	
 	// Long Training Sequence
 	cvec Long_training_seq = " 0 0 0 0 0 0  1 1 -1 -1 1 1 -1 1 -1 1 1 1 1 1 1 -1 -1 1 1 -1 1 -1 1 1 1 1 0 1 -1 -1 1 1 -1 1 -1 1 -1 -1 -1 -1 -1 1 1 -1 -1 1 -1 1 -1 1 1 1 1 0 0 0 0 0  "; 
@@ -1214,7 +1214,7 @@ bvec file2binary_converter(void)
 	
 		size_t result = fread(&Buf,sizeof(char),1,fileIn);
 		// Test en cas de non lecture du fichier
-		if (result == 0) {  cout << " File reading error " << endl; }  //fputs ("Reading error",stderr); exit (3);}
+		//if (result == 0) {  cout << " File reading error " << endl; }  //fputs ("Reading error",stderr); exit (3);}
 	
 		for(i=0; i<8; i++)
 
@@ -1392,12 +1392,12 @@ void data_rate_choice(double* R, int* Nbpsc, int* data_rate,int *Ncbps,int *Ndbp
 				*Nbpsc=1;
 				*Ncbps=48**Nbpsc;
 				*Ndbps=(int)*Ncbps**R;
-				cout << "Simulation parameters :\n\n";
+				/*cout << "Simulation parameters :\n\n";
 				cout << "\t\t- Modulation : BPSK\n";
 				cout << "\t\t- Coding rate : 1/2\n";
 				cout << "\t\t- Coded bits per subcarrier : "<< *Nbpsc << endl;
 				cout << "\t\t- Coded bits per OFDM symbol :"<< *Ncbps << endl;
-				cout << "\t\t- Coded data bits per OFDM symbol :"<< *Ndbps << endl;
+				cout << "\t\t- Coded data bits per OFDM symbol :"<< *Ndbps << endl;*/
 		break;
 		case 9 :
 				*R=3/4.0;

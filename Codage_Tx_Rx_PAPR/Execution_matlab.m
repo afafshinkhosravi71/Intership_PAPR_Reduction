@@ -87,11 +87,16 @@ if (plot_data==1)
     plot((1:length(idealSpacedPulse))/sampleRate, abs(idealSpacedPulse),':r','linewidth',2);
     plot((1:length(idealSpacedPulse))/sampleRate, Avg_Power',':black','linewidth',2);
     plot((1:length(idealSpacedPulse))/sampleRate, Peak_Power','yellow','linewidth',2);
-
     title('OFDM Symbols in the time domain')
     xlabel('Time (s)')
     ylabel('Amplitude')
     legend('I component','Q component','Envelope','Average Power','Peak Power');
     axis tight; axisLimits = axis; axis([axisLimits(1:2) 1.2*(axisLimits(3:4))])
+    
+    figure(5);
+    subplot(121); imshow('lena.jpg'); title('Sented Image');
+    subplot(122); imshow('test.jpg'); title('received Image');
 end
 disp('Done -->> IQ data is loaded to the MXG');
+
+    

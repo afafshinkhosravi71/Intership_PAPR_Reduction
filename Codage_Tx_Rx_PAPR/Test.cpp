@@ -13,31 +13,27 @@
 #include <string>
 #include <iterator>
 
+// g++ `pkg-config --cflags itpp` -o Test Utils.h Test.cpp `pkg-config --libs itpp`
+
 using namespace std;
 using namespace itpp;
 using std::cin;
 using std::cout;
 using std::endl;
 
-
-/*
 int main()
 {
-	//bvec is a vector containing bits
-  	bvec transmitted_bits;
+	vec EbN0_dB = "0.0 0.5 1.0 1.5 2.0 2.5 3.0 3.5 4.0 4.5 5.0 5.5 6.0 6.5 7.0 7.5 8.0 8.5 9.0 9.5 10.0";
+    	double R = 1.0/2.0;    					//coding rate (non punctured PCCC)
+    	double Ec = 1.0;      					//coded bit energy
+	cout << "Now simulating EbN0db = " << EbN0_dB << endl;
 
-	//Generating the Data field
-   	int N_bits;					//number of bits being transmitted
-
-	// from a file 
-	bvec input_binary_vector;
-	input_binary_vector=file2binary_converter();	//read data from a file 
-	N_bits=input_binary_vector.length();		//number of bits in the file being transmitted 
-	transmitted_bits=input_binary_vector;	
+	vec sigma2 = (0.5*Ec/R)*pow(inv_dB(EbN0_dB), -1.0); 	// N0/2
+	cout << "Noise variance Sigma = " << sigma2 << endl;
 
 	return 0;
 }
-*/
+
 /*
 int main()
 {
@@ -70,6 +66,7 @@ int main()
 	return 0;
 } 
 */
+/*
 cvec window(const cvec &input)//windowing function
 	{	
 		cvec output(size(input));
@@ -81,7 +78,6 @@ cvec window(const cvec &input)//windowing function
 
 int main()
 {
-	cout << "/************* Preamble genered *******************/" << endl;
 	// Generation of the short sequences
 	cvec Short_training_seq(53);       //including the value 0 at dc
 	Short_training_seq.zeros();
@@ -134,5 +130,5 @@ int main()
 	
 	return 0;
 } 
-
+*/
 

@@ -109,7 +109,7 @@ int main()
 
 	for (int p=0;p<nbr_frames;p++)		//this for loop is for segementing data greater than 4095 octets into frames
 	{	
-		cout << "Now simulating frame # :" << p+1 << "/" << nbr_frames << "..." << endl;
+		//cout << "Now simulating frame # :" << p+1 << "/" << nbr_frames << "..." << endl;
 		
 		bvec transmitted_bits_seg;		// vector contains the segmented bits  
 
@@ -232,8 +232,6 @@ int main()
 		//cout << "PPDU_Frame_Final:  " << PPDU_Frame_Final.length() << endl;
   	}
 	
-	cout << "/********* Assembling Frame **************/" << endl;
-	cout << "PPDU_Frame_Final length() :  " << PPDU_Frame_Final.length() << endl;
 
 	//cout << sent_pilots_final << endl;
 	// save into a file
@@ -260,13 +258,39 @@ int main()
 	//cout<<frame_nbr_field.length()<<endl;
 	
 	//Saving PPDU_Frame into Sent_Frame.it
+	//Sent_Frame_Saver(PPDU_Frame_Final);
+
+	cout << "/********* Assembling Frame **************/" << endl;
+	cout << "PPDU_Frame_Final length() :  " << PPDU_Frame_Final.length() << endl;
+
+	/********************************************************************************************************************/
+
+	int op = 13;
+	vec EbN0_dB = "0.0 0.5 1.0 1.5 2.0 2.5 3.0 3.5 4.0 4.5 5.0 5.5 6.0 6.5 7.0 7.5 8.0 8.5 9.0 9.5 10.0";
+    	//double R = 1.0/3.0;    				//coding rate (non punctured PCCC)
+    	double Ec = 1.0;      					//coded bit energy
+	cout << "Now simulating EbN0db = " << EbN0_dB << endl;
+
+	vec sigma2 = (0.5*Ec/R)*pow(inv_dB(EbN0_dB), -1.0); 	// N0/2
+	cout << "Noise variance Sigma = " << sigma2 << endl;
+	cout << "Noise variance Sigma used = " << sigma2(op) << endl;
+	
+	//AWGN channel
+    	AWGN_Channel channel;
+        channel.set_noise(sigma2(op));
+
+	//Signal + AWGN channel
+        PPDU_Frame_Final = channel(PPDU_Frame_Final);
+
+	cout << " Transmission time : " << tt.toc() << " seconds" << endl;
+
+	//Saving PPDU_Frame into Sent_Frame.it
 	Sent_Frame_Saver(PPDU_Frame_Final);
-    
-	cout << " Programm execution time : " << tt.toc() << " seconds" << endl;
 
 
 	/********************************************************************************************************************/
-	/********************************************************************************************************************/
+
+	tt.tic();
 
 	// Declare the it_file class
 	it_file ff;
@@ -277,7 +301,7 @@ int main()
 
 	// File permition
 	int res = system("sudo chmod 777 Sent_Frame.it");
-	cout << "result system(sudo chmod 777 Sent_Frame.it) = " << res << endl;
+	//cout << "result system(sudo chmod 777 Sent_Frame.it) = " << res << endl;
 
 	// Open the file
 	ff.open("Sent_Frame.it");
@@ -295,7 +319,7 @@ int main()
 	/****************** Receiver Side ********************************/
 	for (int p=0;p<nbr_frames;p++)
 	{
-		cout<<"Receiving frame number : "<<p+1<<endl;
+		//cout<<"Receiving frame number : "<<p+1<<endl;
 		// short sequence recuperation length = 160
 		cvec received_short_squence = ofdm_received_symb.left(160);
 
@@ -304,7 +328,7 @@ int main()
 		double mean2 = mean(abs(received_short_squence));
 		double AGC = mean1/mean2;
 		ofdm_received_symb=AGC*ofdm_received_symb;
-		cout<< "AGC for every frame = " << AGC<<endl;
+		//cout<< "AGC for every frame = " << AGC<<endl;
 		
 		// long training sequence recuperation length = 160
 		cvec received_long_squence=ofdm_received_symb(160,319);
@@ -332,14 +356,14 @@ int main()
 		//update the number of frames and get real number of frames 
 		if (p==0)
 			nbr_frames = frame_nbr_receiver(frame_nbr_field, N0, Hhat);
-		cout<<"Number of frames: "<< nbr_frames << endl;
+		//cout<<"Number of frames: "<< nbr_frames << endl;
 
-		// received data rate recuperation
+		// received data rate recuperationnoise variance vs SNR
 		ivec output = Receiver_data_rate(received_signal_field, N0, Hhat);
 
 		int rec_data_rate=output(0);			// received  data rate must be one of these values (6, 9, 12, 18, 24, 36 ,48,54 )(Mb/s)
 		int rec_length=output(1);			// received length 
-		cout <<"data rate : "<< rec_data_rate << endl << "length : "<< rec_length << endl; //tested ok
+		//cout <<"data rate : "<< rec_data_rate << endl << "length : "<< rec_length << endl; //tested ok
 
 		//this function will set all the parameters according to the data rate value determined by the receiver
 		data_rate_choice( &R , &Nbpsc, &rec_data_rate, &Ncbps, &Ndbps);	
@@ -352,7 +376,7 @@ int main()
 		
 		Ndata=Nsys_data*Ndbps;
 		
-		cout<<"Nsys_data : "<<Nsys_data+5<<endl;
+		//cout<<"Nsys_data : "<<Nsys_data+5<<endl;
 		//cout<<"Ndata : "<<Ndata<<endl;
 
 		// added to separate two consecutive frames you have to use the same value used at the receiver side				
@@ -404,7 +428,7 @@ int main()
 			received_bits_final.ins(received_bits_final.length(),received_bits);
 		        received_pilot_symbols_final.ins(received_pilot_symbols_final.length(),received_pilot_symbols);
 		}
-        	cout<<"end of for loop for iteration number"<<p<<endl;
+        	//cout<<"end of for loop for iteration number"<<p+1<<endl;
 	
 	 }//end for 
 	ff1.open("received_pilots_file.it");
@@ -412,8 +436,33 @@ int main()
 	ff1 << Name("number_of_frames") << nbr_frames;
         //ff1 << Name("Nsys_data") << Nsys_data;
         ff1.close();
+	
+	cout << " Reception time : " << tt.toc() << " seconds" << endl;
+
 	// Converting the file into its original form
-	binary2file_converter(received_bits_final);	
+	binary2file_converter(received_bits_final);
+
+	/****************************************************************************************/
+	/****************************************************************************************/
+
+	//Calculate the bit error rate:
+	BERC berc;    
+    	berc.clear();						//Clear the bit error rate counter
+    	berc.count(input_binary_vector,received_bits_final);	//Count the bit errors
+    	double bit_error_rate = berc.get_errorrate();
+	double bit_error = berc.get_errors();
+	cout << "Bit Error Rate : " << bit_error_rate << endl;
+	cout << "Number of bit Errors : " << bit_error << endl;
+	cout << "Number of bits : " << input_binary_vector.length() << endl;
+
+	// save the bit vectors into an it file
+	it_file a;
+	a.open("bits.it");
+	a << Name("sent_bits") << input_binary_vector;
+	a << Name("rec_bits") << received_bits_final;
+	a.close();
+
+	//**************************************** END ******************************************************//	
 	return 0;
 }
 
