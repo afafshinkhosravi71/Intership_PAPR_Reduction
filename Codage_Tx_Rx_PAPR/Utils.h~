@@ -19,6 +19,10 @@ using std::cin;
 using std::cout;
 using std::endl;
 
+/********************************************************/
+bvec Receiver();
+cvec tone_reserv_Grad_conj(const cvec &input);
+/***************************************************/
 void data_rate_choice(double* R, int* Nbpsc, int* data_rate,int *Ncbps, int *Ndbps);
 bvec Punct_Conv_Code(const bvec &uncoded_bits, double &R);
 bvec Punct_Conv_Decode(const vec &received_symbol, double &R);
@@ -56,7 +60,180 @@ void BER_SNR(char* file_name, vec EbN0dB, vec bit_error_rate, int mode);
 void Sent_Frame_Saver(cvec ofdm_transmited_frame);
 int chain_length(char c[32]);
 void header_display(void);
+//***********************************************************************************************************************************************************/
+bvec Receiver()
+{
 
+	//Coding rate
+	double R;		
+   
+	// OFDM parameters
+	int Ncbps;			// Coded bits per OFDM symbol 
+	int Nbpsc;			// Coded bits per subcarrier 
+	int Ndbps;			// Coded data bits OFDM symbol
+	int N_SD = 48;		        // Number of data subcarriers
+	int N_SP = 4;			// Number of pilot subcarriers
+	int N_ST = N_SD + N_SP;	        // Number of subcarriers total = 52
+	int Nfft = 64; 			// FFT size
+	int Ncp = 16;			// Cyclic prefix size
+	bvec State = " 1 0 1 1 1 0 1 ";		//intial state 
+
+	Real_Timer tt;
+	tt.tic();
+
+	// Declare the it_file class
+	it_file ff;
+
+	bvec received_bits_final;
+        cvec received_pilot_symbols_final;
+	cvec ofdm_received_symb;
+
+	// File permition
+	int res = system("sudo chmod 777 Sent_Frame.it");
+	//cout << "result system(sudo chmod 777 Sent_Frame.it) = " << res << endl;
+
+	// Open the file
+	ff.open("Sent_Frame.it");
+
+	// Read the variable freq_cor_IQData from the file. Put result in vector ofdm_received_symb.
+	ff >> Name("PPDU_Frame_Final") >> ofdm_received_symb;
+	ff.close();
+	
+	//intially is set to zero then the real number of frames will be determined from the received frames_nbr_field that was added at the end of the transmission
+	int nbr_frames = 1;
+	cvec frame_nbr_field = ofdm_received_symb(400,400+80-1);
+	// suppress this part
+	ofdm_received_symb.del(400,400+80-1);
+
+	/****************** Receiver Side ********************************/
+	for (int p=0;p<nbr_frames;p++)
+	{
+		//cout<<"Receiving frame number : "<<p+1<<endl;
+		// short sequence recuperation length = 160
+		cvec received_short_squence = ofdm_received_symb.left(160);
+
+		//AGC for every frame: (Average value criterion)
+		double mean1 = 0.8663;					//This is the mean value of the transmitted Short Training Seq.
+		double mean2 = mean(abs(received_short_squence));
+		double AGC = mean1/mean2;
+		ofdm_received_symb=AGC*ofdm_received_symb;
+		//cout<< "AGC for every frame = " << AGC<<endl;
+		
+		// long training sequence recuperation length = 160
+		cvec received_long_squence=ofdm_received_symb(160,319);
+
+		// Signal field recuperation length = 80
+		cvec received_signal_field = ofdm_received_symb(320,399);
+
+
+		//Channel estimation
+		cvec Hh_LS = LS_estimator(received_long_squence);
+		//cvec Hh_MMSE=MMSE_estimator(received_long_squence);
+
+		//choose one of these methods
+		cvec Hhat = Hh_LS;
+		//cvec Hhat=Hh_MMSE;
+
+		// Noise variance of the received long training seq
+		double N0 = noise_variance(received_long_squence); 
+		//cout << N0 << endl;
+
+		//a zero value poses problems for the channel estimation
+		if (N0==0)		
+			N0=1e-6;
+		
+		//update the number of frames and get real number of frames 
+		if (p==0)
+			nbr_frames = frame_nbr_receiver(frame_nbr_field, N0, Hhat);
+		//cout<<"Number of frames: "<< nbr_frames << endl;
+
+		// received data rate recuperationnoise variance vs SNR
+		ivec output = Receiver_data_rate(received_signal_field, N0, Hhat);
+
+		int rec_data_rate=output(0);			// received  data rate must be one of these values (6, 9, 12, 18, 24, 36 ,48,54 )(Mb/s)
+		int rec_length=output(1);			// received length 
+		//cout <<"data rate : "<< rec_data_rate << endl << "length : "<< rec_length << endl; //tested ok
+		//rec_data_rate = 6;
+		//this function will set all the parameters according to the data rate value determined by the receiver
+		data_rate_choice( &R , &Nbpsc, &rec_data_rate, &Ncbps, &Ndbps);	
+
+		int Nsys_data;					//the number of OFDM symbols in data field
+		int Ndata;					//the number of bits in the DATA field
+		
+		// 16 bit of the service field and 6 bits of the tail + length of the data
+		Nsys_data=ceil((16 + 8*rec_length + 6)/(double)Ndbps);		
+		
+		Ndata=Nsys_data*Ndbps;
+		
+		//cout<<"Nsys_data : "<<Nsys_data+5<<endl;
+		//cout<<"Ndata : "<<Ndata<<endl;
+
+		// added to separate two consecutive frames you have to use the same value used at the receiver side				
+		int nbr_zeros=0;														
+
+		// data field for this frame (without the five first symbols)
+		cvec received_data_field = ofdm_received_symb(5*80,5*80+Nsys_data*80-1);	
+		//cout<<ofdm_received_symb(1000+400+Nsys_data*80-1,1000+400+Nsys_data*80+1);// in case of there were 1000 zeros had been added
+
+		// 80*5 is the first five ofdm symbols ; nbr_zeros sample were added to separate two consecutive frames
+		ofdm_received_symb.del(0,nbr_zeros+80*5+Nsys_data*80-1);				
+
+		// OFDM demodulation
+		cvec ofdm_demodulated_symb = ofdm_demodulation(received_data_field,Nfft ,Ncp,1);
+		
+		//Equalization
+		cvec Equalized_output=Equalization(ofdm_demodulated_symb,Hhat);
+
+		//index starts from 1 for the data field
+		int index=1;														
+		cvec received_data_symbols=Pilot_Data_separation(Equalized_output, N_SD ,Nfft, index);
+		
+		//index starts from 1 for the received pilote field
+		int index2 = 0;
+                cvec received_pilot_symbols=Pilot_Data_separation(Equalized_output, N_SD ,Nfft, index2);
+
+		vec soft_demodulated_symbols=soft_demodulation(received_data_symbols, Nbpsc,N0);
+
+		vec	received_symbols_deinterleaved=deinterleaver(soft_demodulated_symbols, Ncbps,Nbpsc);
+	
+		bvec decoded_bits= Punct_Conv_Decode(received_symbols_deinterleaved, R);
+
+		bvec descrambled_bits= descrambler(decoded_bits,State);
+	
+		// flip all bits (that is, convert zeros to ones, and ones to zeros) for the BPSK
+		if (Nbpsc==1)
+			for (int i = 0; i < descrambled_bits.length(); i++)  
+				descrambled_bits(i) = (descrambled_bits(i) == 0 ? 1 : 0);	
+	
+		// Removing the service bits, the tail, and pad bits		
+		bvec received_bits=descrambled_bits(16,16+8*rec_length-1);
+	
+		// Regrouping the received bits 
+		if (p == 0) {
+			received_bits_final=received_bits;
+                        received_pilot_symbols_final=received_pilot_symbols;
+                }
+		else {
+			received_bits_final.ins(received_bits_final.length(),received_bits);
+		        received_pilot_symbols_final.ins(received_pilot_symbols_final.length(),received_pilot_symbols);
+		}
+        	//cout<<"end of for loop for iteration number"<<p+1<<endl;
+	
+	 }//end for 
+	
+	//ff.open("received_pilots_file.it");
+        //ff << Name("rec_pilots") << received_pilot_symbols_final;
+	//ff << Name("number_of_frames") << nbr_frames;
+        //ff << Name("Nsys_data") << Nsys_data;
+        //ff.close();
+	
+	cout << " Reception time : " << tt.toc() << " seconds" << endl;
+
+	// Converting the file into its original form
+	binary2file_converter(received_bits_final);
+
+	return received_bits_final;
+}
 //********************************************************** Punctured Convolutional Coder and Decoder ****************************************************//
 bvec Punct_Conv_Code(const bvec &uncoded_bits, double &R)
 {
@@ -741,8 +918,8 @@ ivec Receiver_data_rate(const cvec &received_signal_field,const double &N0,const
 	else
 		tested_parity="1";
 
-	if (Parity_bit!=tested_parity)
-		cout<< "ERROR IN THE PARITY BIT OF THE RECEIVED SIGNAL FIELD::Wrong or not valid data rate will be chosen!!!!"<<endl;
+	//if (Parity_bit!=tested_parity)
+		//cout<< "ERROR IN THE PARITY BIT OF THE RECEIVED SIGNAL FIELD::Wrong or not valid data rate will be chosen!!!!"<<endl;
 
 	//Receiver data rate determination
 	int data_rate;
@@ -755,7 +932,7 @@ ivec Receiver_data_rate(const cvec &received_signal_field,const double &N0,const
 					else if (RATE=="1 0 1 1") data_rate=36;
 						else if (RATE=="0 0 0 1") data_rate=48;
 							else if (RATE=="0 0 1 1") data_rate=54;
-								else cout<< "ERROR IN THE RECEIVED SIGNAL FIELD::not valid data rate !!!!"<<endl;
+								else data_rate = 6; //cout<< "ERROR IN THE RECEIVED SIGNAL FIELD::not valid data rate !!!!"<<endl;
 	ivec output(2);
 	output(0)=data_rate;
 	output(1)=leng;
@@ -943,12 +1120,16 @@ cvec ofdm_modulation(const  cvec &input, const int &Nfft ,const int &Ncp, const 
 
 	if (norm_factor_flag==1)
 		//norm_factor=sqrt(double(Nfft*Nfft)/double(Nfft+Ncp));
-		norm_factor=sqrt(double(Nfft));
+		norm_factor = sqrt(double(Nfft));
 	else
 		norm_factor=1;
 
 	int nb_row;
 	nb_row = input.length()/Nfft;
+	
+	//cvec tone;
+	//tone = tone_reserv_Grad_conj(input);
+	
 	cmat out_put(nb_row , Nfft+Ncp);
 	out_put.zeros(); 
 	cvec temp_t(Nfft);
@@ -956,17 +1137,18 @@ cvec ofdm_modulation(const  cvec &input, const int &Nfft ,const int &Ncp, const 
 	
 	for(int i = 0;  i < nb_row; i++) 
 		{	
-			temp_f=input(i*Nfft,(1+i)*Nfft-1);
-			//temp_t=ifft (temp_f, Nfft);	//ifft
-			temp_t=ifft (concat(temp_f.right(32),temp_f.left(32)), Nfft);	//the method used by this standard
-			out_put.set_row(i,concat(temp_t.right(Ncp),temp_t));			//adding CP
+			temp_f = input(i*Nfft,(1+i)*Nfft-1);
+			//temp_t = ifft (temp_f, Nfft);					       //ifft
+			temp_t = ifft (concat(temp_f.right(32),temp_f.left(32)), Nfft);	       //the method used by this standard
+			out_put.set_row(i,concat(temp_t.right(Ncp),temp_t));		       //adding CP
 		}//end for
 	 
 	// parallel to series conversion
 	cvec ofdm_symbols( out_put.rows()*out_put.cols() ); 
 
 	for(int i = 0; i < ofdm_symbols.length(); i++)
-		ofdm_symbols(i) =  out_put(floor((long double)i/(Nfft+Ncp)) , mod(i,Nfft+Ncp)); //cout<<floor((long double)i/(Nfft+Ncp))<<"   "<<mod(i,Nfft+Ncp)<<endl;
+		ofdm_symbols(i) =  out_put(floor((long double)i/(Nfft+Ncp)) , mod(i,Nfft+Ncp)); //cout << floor((long double)i/(Nfft+Ncp)) << "   "<< mod(i,Nfft+Ncp) << endl;
+	
 	return norm_factor*ofdm_symbols; //tested ok
 }
 //************************************** ofdm_demodulation ***************************************/
@@ -1214,7 +1396,7 @@ bvec file2binary_converter(void)
 	
 		size_t result = fread(&Buf,sizeof(char),1,fileIn);
 		// Test en cas de non lecture du fichier
-		if (result == 0) {  cout << " File reading error " << endl; }  //fputs ("Reading error",stderr); exit (3);}
+		//if (result == 0) {  cout << " File reading error " << endl; }  //fputs ("Reading error",stderr); exit (3);}
 	
 		for(i=0; i<8; i++)
 
@@ -1392,12 +1574,12 @@ void data_rate_choice(double* R, int* Nbpsc, int* data_rate,int *Ncbps,int *Ndbp
 				*Nbpsc=1;
 				*Ncbps=48**Nbpsc;
 				*Ndbps=(int)*Ncbps**R;
-				/*cout << "Simulation parameters :\n\n";
+				cout << "Simulation parameters :\n\n";
 				cout << "\t\t- Modulation : BPSK\n";
 				cout << "\t\t- Coding rate : 1/2\n";
 				cout << "\t\t- Coded bits per subcarrier : "<< *Nbpsc << endl;
 				cout << "\t\t- Coded bits per OFDM symbol :"<< *Ncbps << endl;
-				cout << "\t\t- Coded data bits per OFDM symbol :"<< *Ndbps << endl;*/
+				cout << "\t\t- Coded data bits per OFDM symbol :"<< *Ndbps << endl;
 		break;
 		case 9 :
 				*R=3/4.0;
@@ -1588,3 +1770,225 @@ int frame_nbr_receiver(const cvec &received_frame_nbr_field,const double &N0,con
 	
 	return leng;
 }
+
+//*****************************************************************************************************************************************/
+//////////////////////////La méthode TR////////////////////////////////										
+cvec tone_reserv_Grad_conj(const cvec &input)
+{
+	//double Gain_dB=10
+	//double Gain_lineaire = pow(10,Gain_dB/20);
+	// declaration des differentes variables;
+	//cout << "test, debut, input.length()====" <<input.length() <<endl;
+	
+	cvec inputmod(input.length());             	// input data length()
+	double pm_input = mean(pow(abs(input),2)); 	// mean of input data
+	cout << "mean(pow(abs(input),2)) = " << mean(pow(abs(input),2)) << endl; 
+	
+	inputmod = input/sqrt(pm_input);	
+	cout << "input/sqrt(pm_input) = " << inputmod.length() << endl; 	
+	
+	double A_clip = 1.65;
+	//double A_clip=0.43*max(abs(inputmod));
+	cout << " A_clip value = " << A_clip << endl ;  
+	
+	/*
+	mean(pow(abs(input),2)) = 0.8125
+	input/sqrt(pm_input) = 64
+ 	A_clip value = 1.65
+ 	Q_IFFT Matrice = 4096
+ 	TR subcarriers = 64
+	*********************************
+	mean(pow(abs(input),2)) = 0.8125
+	input/sqrt(pm_input) = 5568
+ 	A_clip value = 1.65
+ 	Q_IFFT Matrice = 4096
+ 	TR subcarriers = 64
+	*/
+
+	int idd = 0;
+	int iter_max = 1;
+	double dix = 10;
+	double Gain = pow(dix,-2);
+	double precision = pow(dix,-5);
+	complex<double> z(0,1);
+	double Nfft = 64;
+	cvec tempo(Nfft);
+	cmat H(12,Nfft);
+	cvec TR_porteuse(Nfft); 		// le vecteur des sous porteuses a ajouter
+	cmat Q_iFFT(Nfft,Nfft); 		// la matrice IFFT
+	cvec output(input.length()); 		// la sortie finale
+	cmat y(1,Nfft);
+	cvec ysim(Nfft);
+
+	// creation de la matrice Qifft
+	for(int j=0; j<Nfft; j++) 
+		{
+			for(int i=0; i<Nfft; i++) 
+				{
+		 			Q_iFFT(i,j) = exp(2*pi*z*i*j/Nfft);
+				 }
+		}
+	cout << " Q_IFFT Matrice 64*64= " << Q_iFFT.size() << endl ;  
+
+	// creation du vecteur TR _porteuse	
+	for (int m=0; m < Nfft; m++)
+		{
+			if(m > 4 && m!=31 && m < 58) {TR_porteuse(m)= 0;}
+			else {TR_porteuse(m)=1;} 
+		}
+	cout << " TR subcarriers 64*1= " << TR_porteuse.length() << endl ;  
+
+	// creation de la matrice H
+	cmat HH = diag(TR_porteuse);
+        int u = 0;
+	for (int i=0; i<Nfft; i++)
+	{
+		for (int j=0; j<Nfft; j++)
+		{ 
+		 	tempo(j) = HH(j,i);
+		}
+                if (sum(tempo == 1))
+		{ 
+ 		     H.set_row(u,tempo);
+		     u = u + 1;
+		}
+	}
+	cout << " Hessian Matrice = length() 768 = " << H.rows() << " , " << H.cols()  << endl ;  
+
+	cmat L = H* conj(Q_iFFT);
+	cout << " L = H* conj(Q_iFFT) Hessian Matrice = length() 768 = " << L.rows() << " , " << L.cols() << endl ;  
+
+
+	// decomposition de vecteur de donnees
+	cmat x = reshape(inputmod,80,inputmod.length()/80); 		// une matrice de 80 lignes et input.length()/80 colonnes,
+	cout << " x = " << x.rows() << " , " << x.cols() << endl ; 
+
+	// debut de la methode de la reduction  
+	for(int j=0; j<inputmod.length()/80; j++) 			// il parcourt les colonnes ( ici c le nombre des symb OFDM dans la trame)
+	{
+		for(int i=0; i<Nfft; i++) 				// il parcourt les lingnes ( ici c 64)
+		{
+	 		y(i)=x(i+16,j);
+
+		}
+		
+		int iter=0;
+		int test=1;
+		cmat theta=zeros_c(1,12);
+		ysim=theta*H*Q_iFFT+y; // initialisation de vecteur ysim
+		ivec indice_sup=find((abs(ysim))>A_clip); // récupérer les indices pour chaque valeur qui dépasse A_clip 
+		vec eps=A_clip-abs(ysim(indice_sup));     // calculer l'erreur
+                vec Crit=zeros(iter_max+2);
+		Crit(iter)=eps*eps; // parce que eps est un vecteur des entiers reels
+		
+		cvec Grad0;		 
+		cvec Grad_conj;
+		
+		while (test && iter <= iter_max && Crit(iter)>0)
+		{
+	
+			// calculer la SENS 
+			cmat SENS(indice_sup.length(),12);
+			int jj=0;
+			
+			for(int m=0; m<Nfft; m++)
+			{
+				if (abs(ysim(m))> A_clip)
+				{ 
+					for(int i=0; i<12; i++)
+					{
+						SENS(jj,i)=L(i,m)*exp(z*arg(ysim(m)));
+					}
+					jj = jj + 1;			
+				}
+	 		}
+					
+			cmat eps1(1,indice_sup.length()); // conversion de vecteur eps vers une matrice pour faciliter la multiplication
+			
+			for (int n=0; n<indice_sup.length(); n++)
+			{ 
+				eps1(n)=eps(n); 
+			}
+
+		 	cvec Grad;
+		 	Grad = -(eps1*SENS); // calculer de gradient
+				
+			//double P;             //P pour le gradient conjuguee 1
+			std::complex<double> P; //P pour le gradient conjuguee 2
+			if (iter==0)
+			{
+				P=1;
+				Grad_conj=-0*Grad;
+			}
+			else
+			{
+				//P=real(conj(Grad)*Grad)/real(conj(Grad0)*Grad0);   // pour le gradient conjuguée 1	
+				P=(conj(Grad)*(Grad-Grad0))/sum(pow(abs(Grad0),2)); // pour le gradient conjuguée 2					  
+			}
+
+			Grad_conj=-Grad + P*Grad_conj; // calcul de gradient conjuguée
+			cmat Grad_conj_mat(1,Grad_conj.length()); // conversion de vecteur eps vers une matrice pour faciliter la multiplication
+	
+			for (int n=0; n<Grad_conj.length(); n++)
+			{ 
+				Grad_conj_mat(n)=Grad_conj(n); 
+			}
+
+
+			//vec Gain_conj="0.01:0.01:0.2";
+			vec Gain_conj = "0.00001:0.01:0.05";
+			vec fn(Gain_conj.length());
+	
+			for (int l=0; l<Gain_conj.length(); l++)
+			{
+				cmat theta_n=theta+Gain_conj(l)*Grad_conj_mat;
+				ysim=theta_n*H*Q_iFFT+y;
+				ivec indice_sup_conj=find((abs(ysim))>A_clip); // les max qui depassent A_clip pour le gain conjuguee
+				vec eps_conj=A_clip-abs(ysim(indice_sup_conj));    
+				fn(l)=sum(pow(eps_conj,2));
+			}
+		
+			int ii;
+			double min_conj=min(fn,ii);
+
+			cmat theta_recherche=theta+Gain_conj(ii)*Grad_conj_mat;//calcul de theta_recherche
+
+			/// mettre à jour le vecteur ysim et calculer les nouveaux ecart///
+			ysim = theta_recherche*H*Q_iFFT+y; 		// ajouter la correction au vecteur de donnée
+			indice_sup=find((abs(ysim))>A_clip); 		// chercher les indices des peak qui depassent A_clip
+			eps=A_clip-abs(ysim(indice_sup));    		// mise à jour de l'erreur eps
+	
+			/// Calcul du Critère///	
+			double Critere=sum(pow(eps,2));
+			double decroissance_rel=1-Critere/Crit(iter);
+			test=((decroissance_rel>precision) && (Crit(iter)>Critere)); // verification de la condition de la boucle
+	
+			iter=iter+1;
+			theta=theta_recherche;
+			Crit(iter)=Critere;
+			Grad0=Grad;
+			//cout << "iter====" <<iter << endl;
+		
+		} 	// la fin de la boucle while
+	
+		//ajouter l'intervalle de garde	
+		cvec y_IT(80);
+
+		for (int m=0;m<Nfft;m++)
+		{
+			y_IT(m+16)=ysim(m);
+			if (m<16)  y_IT(m)=ysim(m+48);
+		}
+		
+		//reconstruire toute la trame;
+		for (int n=0;n<80;n++)
+			output(n+idd)=y_IT(n); idd=idd+80;
+		//cout << "j====" <<j << endl;	
+
+	}// la fin de la boucle for j (j<Nombre de symbol OFDM)
+
+	//cout << "test fin" <<endl;*/
+	return output;	 
+}
+
+//************************************************************************************************************************************/
