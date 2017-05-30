@@ -1,18 +1,17 @@
-function [paprSymboldB] = Calcul_papr(input_OFDM, nSymbol)
+function [papr_dB, meanSquare, peakVal] = Calcul_papr(input_OFDM, nSymbol)
 
-deb = 1; fin = nSymbol;
 nBitperSymbol = 80;  % nFFTSize(64) + n_IG(16) = 80
 
 input_OFDM = reshape(input_OFDM, nBitperSymbol, nSymbol); 
 
-for ii = deb:fin;
+for ii = 1:nSymbol
     
     x = transpose(input_OFDM(:,ii));
         
     % Calcul du peak to average power ratio PAPR
-    meanSquareValue = x * x' / length(x);
-    peakValue = max(x .* conj(x));
-    paprSymboldB(ii) = 10*log10(peakValue / meanSquareValue);
+    meanSquare(ii) = x * x' / length(x);
+    peakVal(ii) = max(x .* conj(x));
+    papr_dB(ii) = 10*log10(peakVal(ii) / meanSquare(ii));
     
 end
 

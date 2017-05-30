@@ -167,8 +167,7 @@ end
 %=================================== Correction de phase =====================================
 %Charger le fichier des pilotes utilis�s lors de la transmission
 itload sent_pilots_file.it
-YY_p_th=[1;1;1;-1;1;1;1;-1;
-sent_pilots(1:22*4)]*8;
+YY_p_th=[1;1;1;-1;1;1;1;-1; sent_pilots(1:22*4)]*8;
 
 phase_p=[];
 phase_pc=[];

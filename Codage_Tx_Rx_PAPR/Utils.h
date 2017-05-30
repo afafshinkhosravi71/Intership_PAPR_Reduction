@@ -181,6 +181,7 @@ bvec Receiver()
 		// OFDM demodulation
 		cvec ofdm_demodulated_symb = ofdm_demodulation(received_data_field,Nfft ,Ncp,1);
 		
+
 		//Equalization
 		cvec Equalized_output=Equalization(ofdm_demodulated_symb,Hhat);
 
@@ -192,13 +193,19 @@ bvec Receiver()
 		int index2 = 0;
                 cvec received_pilot_symbols=Pilot_Data_separation(Equalized_output, N_SD ,Nfft, index2);
 
-		vec soft_demodulated_symbols=soft_demodulation(received_data_symbols, Nbpsc,N0);
 
-		vec	received_symbols_deinterleaved=deinterleaver(soft_demodulated_symbols, Ncbps,Nbpsc);
+		ff.open("demod.it");
+        	ff << Name("ofdm_demodulated_symb") << received_data_symbols;
+		ff.close();
+
+		vec soft_demodulated_symbols = soft_demodulation(received_data_symbols, Nbpsc,N0);
+
+		vec received_symbols_deinterleaved = deinterleaver(soft_demodulated_symbols, Ncbps,Nbpsc);
 	
 		bvec decoded_bits= Punct_Conv_Decode(received_symbols_deinterleaved, R);
+		//bvec decoded_bits = to_bvec(received_symbols_deinterleaved);
 
-		bvec descrambled_bits= descrambler(decoded_bits,State);
+		bvec descrambled_bits = descrambler(decoded_bits,State);
 	
 		// flip all bits (that is, convert zeros to ones, and ones to zeros) for the BPSK
 		if (Nbpsc==1)
@@ -1372,7 +1379,7 @@ bvec file2binary_converter(void)
 {
 	cout<<endl;
 	cout<<"Please enter the file name you want to transmit with its extension eg image.jpg"<<endl;
-	cout<<"Please note that this file must be in the same directory"<<endl;
+	//cout<<"Please note that this file must be in the same directory"<<endl;
 	char file_name[20];
 	cin>>file_name;
 
@@ -1419,7 +1426,7 @@ void binary2file_converter(const bvec &binary_data)
 {
 	cout<<endl;
 	cout<<"Please enter a file name of the received file with its extension eg. image.jpg"<<endl;
-	cout<<"this file will be saved in the same directory"<<endl;
+	//cout<<"this file will be saved in the same directory"<<endl;
 
 	char file_name[20];
 	cin>>file_name;
@@ -1462,7 +1469,7 @@ void BER_SNR(char* file_name, vec EbN0dB, vec bit_error_rate, int mode)
 
 	if (mode == 0) //Save the results to it file:
 		 {
-		   cout <<"saving data to  " <<file_name<<".it and " <<file_name<<".txt"<<endl;//
+		   cout <<"saving data to  " << file_name << ".it and " << file_name << ".txt" << endl;//
 		   sprintf(buf, "%s.it",file_name);
 		   cout << endl;
 
@@ -1574,48 +1581,48 @@ void data_rate_choice(double* R, int* Nbpsc, int* data_rate,int *Ncbps,int *Ndbp
 				*Nbpsc=1;
 				*Ncbps=48**Nbpsc;
 				*Ndbps=(int)*Ncbps**R;
-				cout << "Simulation parameters :\n\n";
+				/*cout << "Simulation parameters :\n\n";
 				cout << "\t\t- Modulation : BPSK\n";
 				cout << "\t\t- Coding rate : 1/2\n";
 				cout << "\t\t- Coded bits per subcarrier : "<< *Nbpsc << endl;
 				cout << "\t\t- Coded bits per OFDM symbol :"<< *Ncbps << endl;
-				cout << "\t\t- Coded data bits per OFDM symbol :"<< *Ndbps << endl;
+				cout << "\t\t- Coded data bits per OFDM symbol :"<< *Ndbps << endl;*/
 		break;
 		case 9 :
 				*R=3/4.0;
 				*Nbpsc=1;
 				*Ncbps=48**Nbpsc;
 				*Ndbps=(int)*Ncbps**R;
-				cout << "Simulation parameters :\n\n";
+				/*cout << "Simulation parameters :\n\n";
 				cout << "\t\t- Modulation : BPSK\n";
 				cout << "\t\t- Coding rate : 3/4\n";
 				cout << "\t\t- Coded bits per subcarrier :"<<*Nbpsc<<"\n";
 				cout << "\t\t- Coded bits per OFDM symbol :"<<*Ncbps<<"\n";
-				cout << "\t\t- Coded data bits per OFDM symbol :"<<*Ndbps<<"\n";
+				cout << "\t\t- Coded data bits per OFDM symbol :"<<*Ndbps<<"\n";*/
 		break;
 		case 12 :
 				*R=1/2.0;
 				*Nbpsc=2;
 				*Ncbps=48**Nbpsc;
 				*Ndbps=(int)*Ncbps**R;
-				cout << "Simulation parameters :\n\n";
+				/*cout << "Simulation parameters :\n\n";
 				cout << "\t\t- Modulation : QPSK\n";
 				cout << "\t\t- Coding rate : 1/2\n";
 				cout << "\t\t- Coded bits per subcarrier :"<<*Nbpsc<<"\n";
 				cout << "\t\t- Coded bits per OFDM symbol :"<<*Ncbps<<"\n";
-				cout << "\t\t- Coded data bits per OFDM symbol :"<<*Ndbps<<"\n";
+				cout << "\t\t- Coded data bits per OFDM symbol :"<<*Ndbps<<"\n";*/
 		break;
 		case 18 :
 				*R=3/4.0;
 				*Nbpsc=2;
 				*Ncbps=48**Nbpsc;
 				*Ndbps=(int)*Ncbps**R;
-				cout << "Simulation parameters :\n\n";
+				/*cout << "Simulation parameters :\n\n";
 				cout << "\t\t- Modulation : QPSK\n";
 				cout << "\t\t- Coding rate : 3/4\n";
 				cout << "\t\t- Coded bits per subcarrier :"<<*Nbpsc<<"\n";
 				cout << "\t\t- Coded bits per OFDM symbol :"<<*Ncbps<<"\n";
-				cout << "\t\t- Coded data bits per OFDM symbol :"<<*Ndbps<<"\n";
+				cout << "\t\t- Coded data bits per OFDM symbol :"<<*Ndbps<<"\n";*/
 
 		break;
 		case 24 :
@@ -1623,48 +1630,48 @@ void data_rate_choice(double* R, int* Nbpsc, int* data_rate,int *Ncbps,int *Ndbp
 				*Nbpsc=4;
 				*Ncbps=48**Nbpsc;
 				*Ndbps=(int)*Ncbps**R;
-				cout << "Simulation parameters :\n\n";
+				/*cout << "Simulation parameters :\n\n";
 				cout << "\t\t- Modulation : 16-QAM\n";
 				cout << "\t\t- Coding rate : 1/2\n";
 				cout << "\t\t- Coded bits per subcarrier :"<<*Nbpsc<<"\n";
 				cout << "\t\t- Coded bits per OFDM symbol :"<<*Ncbps<<"\n";
-				cout << "\t\t- Coded data bits per OFDM symbol :"<<*Ndbps<<"\n";
+				cout << "\t\t- Coded data bits per OFDM symbol :"<<*Ndbps<<"\n";*/
 		break;
 		case 36 :
 				*R=3/4.0;
 				*Nbpsc=4;
 				*Ncbps=48**Nbpsc;
 				*Ndbps=(int)*Ncbps**R;
-				cout << "Simulation parameters :\n\n";
+				/*cout << "Simulation parameters :\n\n";
 				cout << "\t\t- Modulation : 16-QAM\n";
 				cout << "\t\t- Coding rate : 3/4\n";
 				cout << "\t\t- Coded bits per subcarrier :"<<*Nbpsc<<"\n";
 				cout << "\t\t- Coded bits per OFDM symbol :"<<*Ncbps<<"\n";
-				cout << "\t\t- Coded data bits per OFDM symbol :"<<*Ndbps<<"\n";
+				cout << "\t\t- Coded data bits per OFDM symbol :"<<*Ndbps<<"\n";*/
 		break;
 		case 48 :
 				*R=2/3.0;
 				*Nbpsc=6;
 				*Ncbps=48**Nbpsc;
 				*Ndbps=(int)*Ncbps**R;
-				cout << "Simulation parameters :\n\n";
+				/*cout << "Simulation parameters :\n\n";
 				cout << "\t\t- Modulation : 64-QAM\n";
 				cout << "\t\t- Coding rate : 2/3\n";
 				cout << "\t\t- Coded bits per subcarrier :"<<*Nbpsc<<"\n";
 				cout << "\t\t- Coded bits per OFDM symbol :"<<*Ncbps<<"\n";
-				cout << "\t\t- Coded data bits per OFDM symbol :"<<*Ndbps<<"\n";
+				cout << "\t\t- Coded data bits per OFDM symbol :"<<*Ndbps<<"\n";*/
 		break;
 		case 54 :
 				*R=3/4.0;
 				*Nbpsc=6;
 				*Ncbps=48**Nbpsc;
 				*Ndbps=(int)*Ncbps**R;
-				cout << "Simulation parameters :\n\n";
+				/*cout << "Simulation parameters :\n\n";
 				cout << "\t\t- Modulation : 64-QAM\n";
 				cout << "\t\t- Coding rate : 3/4\n";
 				cout << "\t\t- Coded bits per subcarrier :"<<*Nbpsc<<"\n";
 				cout << "\t\t- Coded bits per OFDM symbol :"<<*Ncbps<<"\n";	
-				cout << "\t\t- Coded data bits per OFDM symbol :"<<*Ndbps<<"\n";
+				cout << "\t\t- Coded data bits per OFDM symbol :"<<*Ndbps<<"\n";*/
 		break;
 		default:{
 			     cout << "Not a valid choice"<<endl;
@@ -1771,8 +1778,25 @@ int frame_nbr_receiver(const cvec &received_frame_nbr_field,const double &N0,con
 	return leng;
 }
 
-//*****************************************************************************************************************************************/
-//////////////////////////La méthode TR////////////////////////////////										
+//************************************** Clipping method **********************************************************************/
+										
+cvec clipping(const cvec &input, const int A)
+{
+	cvec output(input.length());
+	complex<double> j(0, 1.0);
+
+	for (int i=0; i < input.length(); i++)
+	{
+		if (abs(input(i)) <= A) output(i) = input(i);
+		else output(i) = A * exp(j*arg(input(i))); 
+		// cout << output(i) << endl;
+		// cout << "Done" << endl; 
+	}
+
+	return output;
+}
+
+//******************************************* La méthode TR *****************************************************************/							
 cvec tone_reserv_Grad_conj(const cvec &input)
 {
 	//double Gain_dB=10
@@ -1782,20 +1806,21 @@ cvec tone_reserv_Grad_conj(const cvec &input)
 	
 	cvec inputmod(input.length());             	// input data length()
 	double pm_input = mean(pow(abs(input),2)); 	// mean of input data
-	cout << "mean(pow(abs(input),2)) = " << mean(pow(abs(input),2)) << endl; 
+	//cout << "mean(pow(abs(input),2)) = " << mean(pow(abs(input),2)) << endl; 
 	
 	inputmod = input/sqrt(pm_input);	
-	cout << "input/sqrt(pm_input) = " << inputmod.length() << endl; 	
+	//cout << "input/sqrt(pm_input) = " << inputmod.length() << endl; 	
 	
 	double A_clip = 1.65;
 	//double A_clip=0.43*max(abs(inputmod));
-	cout << " A_clip value = " << A_clip << endl ;  
+	//cout << " A_clip value = " << A_clip << endl ;  
 	
 	/*
 	mean(pow(abs(input),2)) = 0.8125
 	input/sqrt(pm_input) = 64
  	A_clip value = 1.65
  	Q_IFFT Matrice = 4096
+	scatterplot(fft(data_ofdm,64))
  	TR subcarriers = 64
 	*********************************
 	mean(pow(abs(input),2)) = 0.8125
@@ -1820,7 +1845,7 @@ cvec tone_reserv_Grad_conj(const cvec &input)
 	cmat y(1,Nfft);
 	cvec ysim(Nfft);
 
-	// creation de la matrice Qifft
+	//***************** creation de la matrice Q_ifft
 	for(int j=0; j<Nfft; j++) 
 		{
 			for(int i=0; i<Nfft; i++) 
@@ -1828,15 +1853,16 @@ cvec tone_reserv_Grad_conj(const cvec &input)
 		 			Q_iFFT(i,j) = exp(2*pi*z*i*j/Nfft);
 				 }
 		}
-	cout << " Q_IFFT Matrice 64*64= " << Q_iFFT.size() << endl ;  
+	//cout << " Q_IFFT Matrice 64*64= " << Q_iFFT.size() << endl ;  
 
-	// creation du vecteur TR _porteuse	
+	//**************** creation du vecteur TR _porteuse
+	// 12 porteuses reservees a la TR [ 6 -  1  - 5 ]	
 	for (int m=0; m < Nfft; m++)
 		{
 			if(m > 4 && m!=31 && m < 58) {TR_porteuse(m)= 0;}
-			else {TR_porteuse(m)=1;} 
+			else {TR_porteuse(m) = 1;} 
 		}
-	cout << " TR subcarriers 64*1= " << TR_porteuse.length() << endl ;  
+	//cout << " TR subcarriers 64*1= " << TR_porteuse.length() << endl ;  
 
 	// creation de la matrice H
 	cmat HH = diag(TR_porteuse);
@@ -1853,33 +1879,45 @@ cvec tone_reserv_Grad_conj(const cvec &input)
 		     u = u + 1;
 		}
 	}
-	cout << " Hessian Matrice = length() 768 = " << H.rows() << " , " << H.cols()  << endl ;  
+	//cout << " Hessian Matrice = length() 768 = " << H.rows() << " , " << H.cols()  << endl ;
 
-	cmat L = H* conj(Q_iFFT);
-	cout << " L = H* conj(Q_iFFT) Hessian Matrice = length() 768 = " << L.rows() << " , " << L.cols() << endl ;  
+	cmat L = H * conj(Q_iFFT);
+	//cout << " L = H* conj(Q_iFFT) Hessian Matrice = length() 768 = " << L.rows() << " , " << L.cols() << endl ;  
 
 
 	// decomposition de vecteur de donnees
+	//cmat x = reshape(inputmod,80,inputmod.length()/80); 		// une matrice de 80 lignes et input.length()/80 colonnes,
 	cmat x = reshape(inputmod,80,inputmod.length()/80); 		// une matrice de 80 lignes et input.length()/80 colonnes,
-	cout << " x = " << x.rows() << " , " << x.cols() << endl ; 
+	//cout << " x = " << x.rows() << " , " << x.cols() << endl ; 
 
 	// debut de la methode de la reduction  
 	for(int j=0; j<inputmod.length()/80; j++) 			// il parcourt les colonnes ( ici c le nombre des symb OFDM dans la trame)
 	{
 		for(int i=0; i<Nfft; i++) 				// il parcourt les lingnes ( ici c 64)
 		{
-	 		y(i)=x(i+16,j);
+	 		y(i) = x(i+16,j);
 
 		}
 		
-		int iter=0;
-		int test=1;
-		cmat theta=zeros_c(1,12);
-		ysim=theta*H*Q_iFFT+y; // initialisation de vecteur ysim
-		ivec indice_sup=find((abs(ysim))>A_clip); // récupérer les indices pour chaque valeur qui dépasse A_clip 
-		vec eps=A_clip-abs(ysim(indice_sup));     // calculer l'erreur
-                vec Crit=zeros(iter_max+2);
-		Crit(iter)=eps*eps; // parce que eps est un vecteur des entiers reels
+		cout << "length() de y " << y.rows() << " ; " << y.cols() << endl;
+		
+
+		int iter = 0;
+		int test = 1;
+		
+		// initialisation de vecteur ysim
+		cmat theta = zeros_c(1,12);
+		ysim = theta*H*Q_iFFT + y; 
+	
+		// récupérer les indices pour chaque valeur qui dépasse A_clip
+		ivec indice_sup = find((abs(ysim))>A_clip);  
+
+		// calculer l'erreur
+		vec eps = A_clip - abs(ysim(indice_sup));     
+                
+
+		vec Crit = zeros(iter_max+2);
+		Crit(iter) = eps*eps; // parce que eps est un vecteur des entiers reels
 		
 		cvec Grad0;		 
 		cvec Grad_conj;
@@ -1889,7 +1927,7 @@ cvec tone_reserv_Grad_conj(const cvec &input)
 	
 			// calculer la SENS 
 			cmat SENS(indice_sup.length(),12);
-			int jj=0;
+			int jj = 0;
 			
 			for(int m=0; m<Nfft; m++)
 			{
@@ -1897,7 +1935,7 @@ cvec tone_reserv_Grad_conj(const cvec &input)
 				{ 
 					for(int i=0; i<12; i++)
 					{
-						SENS(jj,i)=L(i,m)*exp(z*arg(ysim(m)));
+						SENS(jj,i) = L(i,m)*exp(z*arg(ysim(m)));
 					}
 					jj = jj + 1;			
 				}
@@ -1907,18 +1945,18 @@ cvec tone_reserv_Grad_conj(const cvec &input)
 			
 			for (int n=0; n<indice_sup.length(); n++)
 			{ 
-				eps1(n)=eps(n); 
+				eps1(n) = eps(n); 
 			}
 
 		 	cvec Grad;
-		 	Grad = -(eps1*SENS); // calculer de gradient
+		 	Grad = -(eps1*SENS);  	// calculer de gradient
 				
 			//double P;             //P pour le gradient conjuguee 1
 			std::complex<double> P; //P pour le gradient conjuguee 2
 			if (iter==0)
 			{
-				P=1;
-				Grad_conj=-0*Grad;
+				P = 1;
+				Grad_conj = -0*Grad;
 			}
 			else
 			{
@@ -1927,6 +1965,8 @@ cvec tone_reserv_Grad_conj(const cvec &input)
 			}
 
 			Grad_conj=-Grad + P*Grad_conj; // calcul de gradient conjuguée
+			
+
 			cmat Grad_conj_mat(1,Grad_conj.length()); // conversion de vecteur eps vers une matrice pour faciliter la multiplication
 	
 			for (int n=0; n<Grad_conj.length(); n++)
@@ -1970,20 +2010,22 @@ cvec tone_reserv_Grad_conj(const cvec &input)
 			//cout << "iter====" <<iter << endl;
 		
 		} 	// la fin de la boucle while
-	
+		cout << " ysim.length() " << ysim.length() << endl;
+		
 		//ajouter l'intervalle de garde	
 		cvec y_IT(80);
 
-		for (int m=0;m<Nfft;m++)
+		for (int m=0; m<Nfft; m++)
 		{
-			y_IT(m+16)=ysim(m);
-			if (m<16)  y_IT(m)=ysim(m+48);
+			y_IT(m+16) = ysim(m);
+			if (m<16)  y_IT(m) = ysim(m+48);
 		}
 		
 		//reconstruire toute la trame;
-		for (int n=0;n<80;n++)
-			output(n+idd)=y_IT(n); idd=idd+80;
-		//cout << "j====" <<j << endl;	
+		for (int n=0; n<80; n++)
+			output(n+idd) = y_IT(n); idd = idd + 80;
+			//output(n+idd) = y_IT(n); idd=idd+80;
+		cout << " output " << output.length() << endl;	
 
 	}// la fin de la boucle for j (j<Nombre de symbol OFDM)
 
@@ -1992,3 +2034,268 @@ cvec tone_reserv_Grad_conj(const cvec &input)
 }
 
 //************************************************************************************************************************************/
+
+/******************************************* La méthode TR *******************************/							
+/*cvec tone_reserv_Grad_conj2(const cvec &input)
+{
+	
+	double Nfft = 64;
+	double nSymbol = input.length()/48;
+	cout << " Parameter 1 : " << endl; 
+	cout << "Nfft = " << Nfft << endl; 
+	cout << "nSymbol = " << nSymbol << endl; 
+	cout << "input length() = " << input.lenght() << endl; 
+	
+	
+	complex<double> z(0,1);
+	cvec tempo(Nfft);
+	cmat H(12,Nfft);
+	cvec TR_porteuse(Nfft); // le vecteur des sous porteuses a ajouter
+	cmat Q_iFFT(Nfft,Nfft); // la matrice IFFT
+
+
+	double A_clip = 1.65;
+	cout << " A_clip value = " << A_clip << endl ; 
+
+	int iter_max = 1;
+	cout << " Iter max = " << iter_max << endl ; 
+	
+	
+	//***************** creation de la matrice Q_ifft
+	for(int j=0; j<Nfft; j++) 
+		{
+			for(int i=0; i<Nfft; i++) 
+				{
+		 			Q_iFFT(i,j) = exp(2*pi*z*i*j/Nfft);
+				 }
+		}
+	cout << " Q_IFFT Matrice 64*64= " << Q_iFFT.size() << endl ;  
+
+
+	//**************** creation du vecteur TR _porteuse
+	// 12 porteuses reservees a la TR [ 6 -  1  - 5 ]	
+	for (int m=0; m < Nfft; m++)
+		{
+			if(m > 4 && m!=31 && m < 58) {TR_porteuse(m)= 0;}
+			else {TR_porteuse(m) = 1;} 
+		}
+	cout << " TR subcarriers 64*1 = " << TR_porteuse << endl ;  
+
+	// creation de la matrice H
+	cmat HH = diag(TR_porteuse);
+        int u = 0;
+	for (int i=0; i<Nfft; i++)
+	{
+		for (int j=0; j<Nfft; j++)
+		{ 
+		 	tempo(j) = HH(j,i);
+		}
+                if (sum(tempo == 1))
+		{ 
+ 		     H.set_row(u,tempo);
+		     u = u + 1;
+		}
+	}
+	cout << " Hessian Matrice size() = " << H.rows() << " , " << H.cols()  << endl ;
+
+	double nb_para = H.cols();
+
+	
+	cmat L = Q_iFFT * H;
+	cout << " L = H* conj(Q_iFFT) size() " << L.rows() << " , " << L.cols() << endl ;
+
+
+	cvec inputmod(input.length());             	// input data length()
+	double pm_input = mean(pow(abs(input),2)); 	// mean of input data
+	inputmod = input/sqrt(pm_input);	
+	//cout << "input/sqrt(pm_input) = " << inputmod.length() << endl; 	
+
+
+	cvec output(input.length()); 		// la sortie finale
+
+	/*int idd = 0;
+	double dix = 10;
+	double Gain = pow(dix,-2);
+	double precision = pow(dix,-5);
+
+	cvec output(input.length()); 		// la sortie finale
+	cmat y(1,Nfft);
+	cvec ysim(Nfft);
+
+
+	// decomposition de vecteur de donnees
+	//cmat x = reshape(inputmod,80,inputmod.length()/80); 		// une matrice de 80 lignes et input.length()/80 colonnes,
+	cmat x = reshape(inputmod,64,inputmod.length()/48); 		// une matrice de 80 lignes et input.length()/80 colonnes,
+	//cout << " x = " << x.rows() << " , " << x.cols() << endl ; */
+
+	
+/*	cmat inputmod2(Nfft,1);
+	cmat y_clip(1,Nfft);
+	cvec ysim(Nfft);
+
+	// debut de la methode de la reduction  
+	for(int j=0; j<nSymbol; j++) 
+	{
+		for(int i=0; i<Nfft; i++) 				// il parcourt les lingnes ( ici c 64)
+		{
+	 		inputmod2(i) = inputmod(i,j);
+
+		}
+		
+		cout << "length() de inputmod2 " << inputmod2.length() << endl;
+		
+
+		cmat x = Q_iFFT * inputmod2;
+		cout << "length() de x " << x.rows() << " , " << x.cols()<< endl;
+		
+		y_clip = x;
+	
+		// récupérer les indices pour chaque valeur qui dépasse A_clip
+		ivec indice_sup = find((abs(y_clip))>A_clip);  
+		y_clip(indice_sup) = exp(z*arg(y_clip(indice_sup))) * A_clip;
+		
+		int iter = 0;
+		// initialisation de vecteur ysim
+		cmat theta = zeros_c(12,1);
+		
+		for(int i=0; i<12; i++) 			
+		{
+	 		theta(i,iter) = (pow((L.transpose() * L) , -1 )*L.transpose()*(y_clip - x));
+
+		}
+		
+		ysim = theta*H*Q_iFFT + x; 
+
+		/*int test = 1;
+		
+		// initialisation de vecteur ysim
+		cmat theta = zeros_c(1,12);
+		ysim = theta*H*Q_iFFT + y; 
+	
+		// récupérer les indices pour chaque valeur qui dépasse A_clip
+		ivec indice_sup = find((abs(ysim))>A_clip);  
+
+		// calculer l'erreur
+		vec eps = A_clip - abs(ysim(indice_sup));     
+                
+
+		vec Crit = zeros(iter_max+2);
+		Crit(iter) = eps*eps; // parce que eps est un vecteur des entiers reels
+		
+		cvec Grad0;		 
+		cvec Grad_conj;
+		
+		while (test && iter <= iter_max && Crit(iter)>0)
+		{
+	
+			// calculer la SENS 
+			cmat SENS(indice_sup.length(),12);
+			int jj = 0;
+			
+			for(int m=0; m<Nfft; m++)
+			{
+				if (abs(ysim(m))> A_clip)
+				{ 
+					for(int i=0; i<12; i++)
+					{
+						SENS(jj,i) = L(i,m)*exp(z*arg(ysim(m)));
+					}
+					jj = jj + 1;			
+				}
+	 		}
+					
+			cmat eps1(1,indice_sup.length()); // conversion de vecteur eps vers une matrice pour faciliter la multiplication
+			
+			for (int n=0; n<indice_sup.length(); n++)
+			{ 
+				eps1(n) = eps(n); 
+			}
+
+		 	cvec Grad;
+		 	Grad = -(eps1*SENS);  	// calculer de gradient
+				
+			//double P;             //P pour le gradient conjuguee 1
+			std::complex<double> P; //P pour le gradient conjuguee 2
+			if (iter==0)
+			{
+				P = 1;
+				Grad_conj = -0*Grad;
+			}
+			else
+			{
+				//P=real(conj(Grad)*Grad)/real(conj(Grad0)*Grad0);   // pour le gradient conjuguée 1	
+				P=(conj(Grad)*(Grad-Grad0))/sum(pow(abs(Grad0),2)); // pour le gradient conjuguée 2					  
+			}
+
+			Grad_conj=-Grad + P*Grad_conj; // calcul de gradient conjuguée
+			
+
+			cmat Grad_conj_mat(1,Grad_conj.length()); // conversion de vecteur eps vers une matrice pour faciliter la multiplication
+	
+			for (int n=0; n<Grad_conj.length(); n++)
+			{ 
+				Grad_conj_mat(n)=Grad_conj(n); 
+			}
+
+
+			//vec Gain_conj="0.01:0.01:0.2";
+			vec Gain_conj = "0.00001:0.01:0.05";
+			vec fn(Gain_conj.length());
+	
+			for (int l=0; l<Gain_conj.length(); l++)
+			{
+				cmat theta_n=theta+Gain_conj(l)*Grad_conj_mat;
+				ysim=theta_n*H*Q_iFFT+y;
+				ivec indice_sup_conj=find((abs(ysim))>A_clip); // les max qui depassent A_clip pour le gain conjuguee
+				vec eps_conj=A_clip-abs(ysim(indice_sup_conj));    
+				fn(l)=sum(pow(eps_conj,2));
+			}
+		
+			int ii;
+			double min_conj=min(fn,ii);
+
+			cmat theta_recherche=theta+Gain_conj(ii)*Grad_conj_mat;//calcul de theta_recherche
+
+			/// mettre à jour le vecteur ysim et calculer les nouveaux ecart///
+			ysim = theta_recherche*H*Q_iFFT+y; 		// ajouter la correction au vecteur de donnée
+			indice_sup=find((abs(ysim))>A_clip); 		// chercher les indices des peak qui depassent A_clip
+			eps=A_clip-abs(ysim(indice_sup));    		// mise à jour de l'erreur eps
+	
+			/// Calcul du Critère///	
+			double Critere=sum(pow(eps,2));
+			double decroissance_rel=1-Critere/Crit(iter);
+			test=((decroissance_rel>precision) && (Crit(iter)>Critere)); // verification de la condition de la boucle
+	
+			iter=iter+1;
+			theta=theta_recherche;
+			Crit(iter)=Critere;
+			Grad0=Grad;
+			//cout << "iter====" <<iter << endl;
+		
+		} 	// la fin de la boucle while
+		cout << " ysim.length() " << ysim.length() << endl;
+		
+		//ajouter l'intervalle de garde	
+		cvec y_IT(80);
+
+		for (int m=0; m<Nfft; m++)
+		{
+			y_IT(m+16) = ysim(m);
+			if (m<16)  y_IT(m) = ysim(m+48);
+		}
+		
+		//reconstruire toute la trame;
+		for (int n=0; n<80; n++)
+			output(n+idd) = ysim(n); idd = idd + 80;
+			//output(n+idd) = y_IT(n); idd=idd+80;
+		cout << " output " << output.length() << endl;	
+
+	}// la fin de la boucle for j (j<Nombre de symbol OFDM)
+
+	//cout << "test fin" <<endl;
+	return output;	 
+}
+
+//************************************************************************************************************************************/
+
+

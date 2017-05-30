@@ -39,14 +39,13 @@ int main()
         cvec sent_pilots_final;
 
 	/*************************** START of programm ***********************************/
-   	header_display();
+   	//header_display();
    	
 	// Intially set data rate=0 to get the desired data rate value from the user
 	data_rate = 0;
 	// Selon le debit, il donne les valleurs des parameters				
 	data_rate_choice( &R ,&Nbpsc, &data_rate, &Ncbps, &Ndbps);
 
-  
 	//Declarations of scalars and vectors: 
   	int i,x;
   	//double noise_variance;
@@ -74,7 +73,7 @@ int main()
   	bvec coded_bits;
   	bvec decoded_bits;
   
-  	//interleaver
+  	//interleaver variables
   	bvec interleaved_bits;
   	vec received_symbols_deinterleaved;
 
@@ -87,30 +86,35 @@ int main()
    	int N_bits;					//number of bits being transmitted
 	
 	// from a file 
+	cout << endl;
+	cout << "------------------- Read data from a file -----------------------" << endl;
 	bvec input_binary_vector;
-	input_binary_vector=file2binary_converter();	//read data from a file 
-	N_bits=input_binary_vector.length();		//number of bits in the file being transmitted 
-	transmitted_bits=input_binary_vector;	
+	input_binary_vector = file2binary_converter();	//read data from a file 
+	N_bits = input_binary_vector.length();		//number of bits in the file being transmitted 
 
+	transmitted_bits = input_binary_vector;
 	/*****************************************************************************/	
 	int max_bit_nbr;
 	// max number of bits per frame. An ofdm frame in 802.11a is 4095 octets in the data field + the preamble and signal fields
 	// this value needs a very sophisticated phase tracking algo so adapt another soution which is to estimate the channel more often 
-	// max_bit_nbr=4095*8;							
-	max_bit_nbr=256*8;	// here you can specify the max number of bits per frame (must be divisible by 8) to do the channel estimation for a shorter frame
+	//max_bit_nbr=4095*8;							
+	max_bit_nbr = 256*8;	// here you can specify the max number of bits per frame (must be divisible by 8) to do the channel estimation for a shorter frame
 
 	//number of ofdm frames needed to transmit this file
 	int nbr_frames=ceil(N_bits/(double)(max_bit_nbr)); 	
 
-	cout<<"Number of bits being transmitted : "<< N_bits << endl;
-	cout<<"Number of frames being transmitted : "<< nbr_frames << endl;
+	cout<<"Number of bits being transmitted : "<< N_bits  <<" bits" << endl;
+	cout<<"Number of frames being transmitted : "<< nbr_frames << " frames" << endl;
 
 	cvec PPDU_Frame_Final;
 
+	cout << endl;
+	cout << "------------------- Transmission -------------------------------------" << endl;
+	
+	
 	for (int p=0;p<nbr_frames;p++)		//this for loop is for segementing data greater than 4095 octets into frames
 	{	
 		//cout << "Now simulating frame # :" << p+1 << "/" << nbr_frames << "..." << endl;
-		
 		bvec transmitted_bits_seg;		// vector contains the segmented bits  
 
 		if (p!=nbr_frames-1)			// all except for the last one
@@ -159,6 +163,7 @@ int main()
 		//***** Coding *****//
 		//cout<<"Coding ... ";
 		coded_bits= Punct_Conv_Code(scrambled_bits, R);
+		//coded_bits = scrambled_bits;
 		//cout << "Done" << endl;
 
 		//***** Interleaving *****//
@@ -168,7 +173,7 @@ int main()
 	
 		//***** Modulation *****//
 		//cout << "/*************** Modulation ******************/" << endl;
-		modulated_symbols= modulation(interleaved_bits,Nbpsc, deci, constl);
+		modulated_symbols = modulation(interleaved_bits,Nbpsc, deci, constl);
 		//cout << "Done" << endl;
 	 	it_file ff1;
        		ff1.open("modulated_symbols.it");
@@ -181,7 +186,7 @@ int main()
 		int index=1;			
 		// first index to choose the second element of the polarity sequence p0-126 and on since zero was chosen for the signal field
         	data_ofdm_freq_symb = Pilot_insertion( modulated_symbols,N_SD ,Nfft,index);
-        
+        	
         	int polarity;
         	cvec sent_pilots;
         	sent_pilots.set_size(4*Nsys_data,false);
@@ -201,24 +206,38 @@ int main()
        		ff1.open("Pilot_insertion.it");
         	ff1 << Name("modulated_symbols_pilots") << data_ofdm_freq_symb;
         	ff1.close();
-		cout << "Done before modulation oFDM " << data_ofdm_freq_symb.length() << endl;
+		//cout << "Done before modulation oFDM " << data_ofdm_freq_symb.length() << endl;
 	
 		//cout << "/********* Tone Reservation **************/" << endl;
-		cvec tone;
-		tone = tone_reserv_Grad_conj(data_ofdm_freq_symb);
+		
+		/*
+		data_ofdm_freq_symb = tone_reserv_Grad_conj(data_ofdm_freq_symb);
 		ff1.open("Tone_reservation.it");
-        	ff1 << Name("Tone_reserv") << tone;
+        	ff1 << Name("Tone_reserv") << data_ofdm_freq_symb;
         	ff1.close();
-		cout << "Tone reservation " << tone.length() << endl;
-		//cout<<"Done"<<endl;
+		//cout << "Tone reservation " << tone.length() << endl;
+		//cout<<"Done"<<endl;	*/					
+		
 
 		//cout << "/********* OFDM modulation **************/" << endl;
 		data_ofdm_transmited_symb = ofdm_modulation(data_ofdm_freq_symb ,Nfft ,Ncp,1);	
 		ff1.open("data_ofdm_transmited.it");
         	ff1 << Name("data_ofdm") << data_ofdm_transmited_symb;
         	ff1.close();
-		cout << "Done after modulation oFDM " << data_ofdm_transmited_symb.length() << endl;
-		cout << "nb_row = input.length()/Nfft " << p+1 << " -- " << data_ofdm_freq_symb.length()/Nfft << endl;
+		//cout << "Done after modulation oFDM " << data_ofdm_transmited_symb.length() << endl;
+		//cout << "nb_row = input.length()/Nfft " << p+1 << " -- " << data_ofdm_freq_symb.length()/Nfft << endl;
+
+		//cout << "/********* Clipping method **************/" << endl;
+		
+		/*cvec clipp;
+ 		double A_clip = 1.65;
+		data_ofdm_transmited_symb = clipping(data_ofdm_transmited_symb, A_clip);
+		ff1.open("Clipping.it");
+        	ff1 << Name("Clipping") << data_ofdm_transmited_symb;
+		ff1 << Name("A_clip") << A_clip;
+        	ff1.close();*/
+		
+		//cout<<"Done"<<endl;
 	
 		//cout << "/********* Data Assembler **************/" << endl;
 		cvec DATA_final=OFDM_Data_Symbols_Assembler(data_ofdm_transmited_symb);
@@ -244,13 +263,13 @@ int main()
 		{
 			PPDU_Frame_Final=PPDU_Frame(0,PPDU_Frame.length() - 2);//-2 because no need for the last sample since it's used for the overlapping
 			PPDU_Frame_Final.ins(PPDU_Frame_Final.length(), zerovec);
-                        sent_pilots_final = sent_pilots;
+                        //sent_pilots_final = sent_pilots;
 		}
 		else{
                     	//overlapping the frames
 			PPDU_Frame_Final.ins(PPDU_Frame_Final.length(),PPDU_Frame(0,PPDU_Frame.length() - 2));	//-2 because no need for the last sample since it's used for the overlapping
 			PPDU_Frame_Final.ins(PPDU_Frame_Final.length(), zerovec);
-                        sent_pilots_final.ins(sent_pilots_final.length(),sent_pilots);
+                        //sent_pilots_final.ins(sent_pilots_final.length(),sent_pilots);
                  }
 		//cout << "PPDU_Frame_Final:  " << PPDU_Frame_Final.length() << endl;
   	}
@@ -283,14 +302,13 @@ int main()
 	//Saving PPDU_Frame into Sent_Frame.it
 	//Sent_Frame_Saver(PPDU_Frame_Final);
 
-	cout << "/********* Assembling Frame **************/" << endl;
-	cout << "PPDU_Frame_Final length() :  " << PPDU_Frame_Final.length() << endl;
+	//cout << "/********* Assembling Frame **************/" << endl;
+	//cout << "PPDU_Frame_Final length() :  " << PPDU_Frame_Final.length() << endl;
 
 	/********************************************************************************************************************/
 
-	int it = 0;
-	vec EbN0_dB = "6.5:0.5:30";
-    	//double R = 1.0/3.0;    				//coding rate (non punctured PCCC)
+	int it = 30;
+	vec EbN0_dB = "0:1:30";
     	double Ec = 1.0;      					//coded bit energy
 
 	vec sigma2 = (0.5*Ec/R)*pow(inv_dB(EbN0_dB), -1.0); 	// N0/2
@@ -298,7 +316,6 @@ int main()
 	//cout << "Noise variance Sigma used = " << sigma2(op) << endl;
 	
 	cout << " Transmission time : " << tt.toc() << " seconds" << endl;
-
 	
 	//for (int it = 0; it <= EbN0_dB.length(); it++){
 
@@ -312,27 +329,30 @@ int main()
 	//Saving PPDU_Frame into Sent_Frame.it
 	Sent_Frame_Saver(PPDU_Frame_Final);
 
+
 	/********************************************************************************************************************/
-	//bvec received_bits_final = Receiver();
+	cout << endl;
+	cout << "------------------- Reception ---------------------------------------" << endl;
+	bvec received_bits_final = Receiver();
 	/********************************************************************************************************************/
 
 	/****************************************************************************************/
 	/****************************************************************************************/
 
-/*	//Calculate the bit error rate:
+	//Calculate the bit error rate:
 	BERC berc;
     	berc.clear();						//Clear the bit error rate counter
     	berc.count(input_binary_vector,received_bits_final);	//Count the bit errors
     	double bit_error_rate = berc.get_errorrate();
 	double bit_error = berc.get_errors();
-	cout << "Now simulating EbN0db = " << EbN0_dB(it) << endl;
+	cout << "Now simulating EbN0db = " << EbN0_dB(it) << " dB" << endl;
 	cout << "Bit Error Rate : " << bit_error_rate << endl;
-	cout << "Number of bit Errors : " << bit_error << endl;
-	cout << "Number of bits : " << input_binary_vector.length() << endl;
+	cout << "Number of bit Errors : " << bit_error << " bits" << endl;
+	cout << "Number of bits received : " << received_bits_final.length() << " bits" << endl;
 
-//}	// save the bit vectors into an it file
+	// save the bit vectors into an it file
 
-	it_file a;
+/*	it_file a;
 	a.open("bits.it");
 	a << Name("Bit Error Rate") << bit_error_rate;
 	a << Name("Signal to Noise Rate") << EbN0_dB;
