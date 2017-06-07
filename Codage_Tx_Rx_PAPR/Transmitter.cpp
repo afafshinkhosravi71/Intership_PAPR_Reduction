@@ -39,7 +39,7 @@ int main()
         cvec sent_pilots_final;
 
 	/*************************** START of programm ***********************************/
-   	//header_display();
+   	header_display();
    	
 	// Intially set data rate=0 to get the desired data rate value from the user
 	data_rate = 0;
@@ -210,8 +210,8 @@ int main()
 	
 		//cout << "/********* Tone Reservation **************/" << endl;
 		
-		/*
-		data_ofdm_freq_symb = tone_reserv_Grad_conj(data_ofdm_freq_symb);
+		
+		data_ofdm_freq_symb = tone_reserv(data_ofdm_freq_symb);
 		ff1.open("Tone_reservation.it");
         	ff1 << Name("Tone_reserv") << data_ofdm_freq_symb;
         	ff1.close();

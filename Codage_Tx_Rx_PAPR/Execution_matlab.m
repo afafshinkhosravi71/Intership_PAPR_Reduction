@@ -126,20 +126,19 @@ scatterplot(modulated_symbols)
 title('Constellation')
 
 figure()
-stem(real(modulated_symbols(1:64)))
+stem(real(modulated_symbols))
 xlabel('Samples');
 ylabel('Amplitude');
 title('Modulated signal')
 
+gain = sqrt(mean(abs(modulated_symbols_pilots).^2));
+
 itload('Pilot_insertion.it')
 figure(); hold on
-itload('Tone_reservation.it')
-stem(real(Tone_reserv(1:64)))
-stem(real(modulated_symbols_pilots(1:64)))
+plot(abs(modulated_symbols_pilots/gain))
 xlabel('Samples');
 ylabel('Amplitude');
-title('Tone reservation applied on signal')
-legend('Pilote Insertion', 'Tone reservation')
+title('Pilot insertion')
 
 itload('data_ofdm_transmited.it')
 figure()
@@ -187,3 +186,4 @@ title('Frequency spectrum OFDM signal');
 itload('demod.it')
 scatterplot(ofdm_demodulated_symb)
 title('constellation à la reception');
+

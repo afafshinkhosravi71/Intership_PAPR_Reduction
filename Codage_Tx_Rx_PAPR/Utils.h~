@@ -22,6 +22,7 @@ using std::endl;
 /********************************************************/
 bvec Receiver();
 cvec tone_reserv_Grad_conj(const cvec &input);
+cvec clipping(const cvec &input, const double A);
 /***************************************************/
 void data_rate_choice(double* R, int* Nbpsc, int* data_rate,int *Ncbps, int *Ndbps);
 bvec Punct_Conv_Code(const bvec &uncoded_bits, double &R);
@@ -204,7 +205,6 @@ bvec Receiver()
 	
 		bvec decoded_bits= Punct_Conv_Decode(received_symbols_deinterleaved, R);
 		//bvec decoded_bits = to_bvec(received_symbols_deinterleaved);
-
 		bvec descrambled_bits = descrambler(decoded_bits,State);
 	
 		// flip all bits (that is, convert zeros to ones, and ones to zeros) for the BPSK
@@ -1055,8 +1055,8 @@ cvec Pilot_insertion( const  cvec &input, const int &N_SD ,const int &Nfft,int &
 				{
 					if( j == 11 || j == 25 || j == 39 || j == 53) //Pilot subcarriers  -21  -7  7  21
 						if(j== 53)
-							 out_put(i,j) = std::complex<double>(-1*polarity,(double)0); 		//conversion into complex
-						else out_put(i,j) = std::complex<double>(1*polarity,(double)0);
+						{	 out_put(i,j) = std::complex<double>(-1*polarity,(double)0); /*cout << " pilot 53 " << out_put(i,j) << endl;*/ }		//conversion into complex
+						else { out_put(i,j) = std::complex<double>(1*polarity,(double)0); /*cout << " pilot 11, 25, 39 " << out_put(i,j) << endl; */ }
 					//Data subcarriers
 					else if( j != 32 &&  j > 5 && j < 59 )
 							{
@@ -1516,7 +1516,7 @@ int chain_length(char c[32])
 //*****************************   Sent_Frame_Saver ******************************************//
 void Sent_Frame_Saver(cvec PPDU_Frame_Final)
 {
-	  char file_name[11]="Sent_Fame";
+	  char file_name[11]="Sent_Frame";
 	  //file_name
 	  char buf[14];
 	  cout << endl;
@@ -1780,7 +1780,7 @@ int frame_nbr_receiver(const cvec &received_frame_nbr_field,const double &N0,con
 
 //************************************** Clipping method **********************************************************************/
 										
-cvec clipping(const cvec &input, const int A)
+cvec clipping(const cvec &input, const double A)
 {
 	cvec output(input.length());
 	complex<double> j(0, 1.0);
@@ -1788,7 +1788,7 @@ cvec clipping(const cvec &input, const int A)
 	for (int i=0; i < input.length(); i++)
 	{
 		if (abs(input(i)) <= A) output(i) = input(i);
-		else output(i) = A * exp(j*arg(input(i))); 
+		else output(i) = A * exp(j*arg(input(i))); //cout << " abs A.exp " << abs(A * exp(j*arg(input(i)))) << endl; 
 		// cout << output(i) << endl;
 		// cout << "Done" << endl; 
 	}
@@ -2035,21 +2035,22 @@ cvec tone_reserv_Grad_conj(const cvec &input)
 
 //************************************************************************************************************************************/
 
-/******************************************* La méthode TR *******************************/							
-/*cvec tone_reserv_Grad_conj2(const cvec &input)
+/******************************************* La méthode TR *******************************/
+						
+cvec tone_reserv(const cvec &input)
 {
 	
 	double Nfft = 64;
-	double nSymbol = input.length()/48;
-	cout << " Parameter 1 : " << endl; 
+	double nSymbol = input.length()/64;
+	cout << "Parameter 1 : " << endl; 
 	cout << "Nfft = " << Nfft << endl; 
 	cout << "nSymbol = " << nSymbol << endl; 
-	cout << "input length() = " << input.lenght() << endl; 
+	cout << "input length() = " << input.length() << endl; 
 	
 	
 	complex<double> z(0,1);
 	cvec tempo(Nfft);
-	cmat H(12,Nfft);
+	cmat H(Nfft, 12);
 	cvec TR_porteuse(Nfft); // le vecteur des sous porteuses a ajouter
 	cmat Q_iFFT(Nfft,Nfft); // la matrice IFFT
 
@@ -2057,9 +2058,8 @@ cvec tone_reserv_Grad_conj(const cvec &input)
 	double A_clip = 1.65;
 	cout << " A_clip value = " << A_clip << endl ; 
 
-	int iter_max = 1;
+	int iter_max = 10;
 	cout << " Iter max = " << iter_max << endl ; 
-	
 	
 	//***************** creation de la matrice Q_ifft
 	for(int j=0; j<Nfft; j++) 
@@ -2079,9 +2079,9 @@ cvec tone_reserv_Grad_conj(const cvec &input)
 			if(m > 4 && m!=31 && m < 58) {TR_porteuse(m)= 0;}
 			else {TR_porteuse(m) = 1;} 
 		}
-	cout << " TR subcarriers 64*1 = " << TR_porteuse << endl ;  
+	cout << " TR subcarriers 64*1 = " << TR_porteuse.length() << endl ;  
 
-	// creation de la matrice H
+	//************ creation de la matrice Hessien
 	cmat HH = diag(TR_porteuse);
         int u = 0;
 	for (int i=0; i<Nfft; i++)
@@ -2092,100 +2092,112 @@ cvec tone_reserv_Grad_conj(const cvec &input)
 		}
                 if (sum(tempo == 1))
 		{ 
- 		     H.set_row(u,tempo);
+ 		     H.set_col(u,tempo);
 		     u = u + 1;
 		}
 	}
-	cout << " Hessian Matrice size() = " << H.rows() << " , " << H.cols()  << endl ;
 
+	cout << " Hessian Matrice size() = " << H.rows() << " , " << H.cols()  << endl ;
+	cout << " Hessian Matrice  = " << H << endl ;
+	
 	double nb_para = H.cols();
 
-	
+	//************ Temporel de la matrice H
 	cmat L = Q_iFFT * H;
-	cout << " L = H* conj(Q_iFFT) size() " << L.rows() << " , " << L.cols() << endl ;
+	cout << " L = Q_iFFT * H size() " << L.rows() << " , " << L.cols() << endl ;
 
-
-	cvec inputmod(input.length());             	// input data length()
-	double pm_input = mean(pow(abs(input),2)); 	// mean of input data
-	inputmod = input/sqrt(pm_input);	
-	//cout << "input/sqrt(pm_input) = " << inputmod.length() << endl; 	
-
-
-	cvec output(input.length()); 		// la sortie finale
-
-	/*int idd = 0;
-	double dix = 10;
-	double Gain = pow(dix,-2);
-	double precision = pow(dix,-5);
-
-	cvec output(input.length()); 		// la sortie finale
-	cmat y(1,Nfft);
-	cvec ysim(Nfft);
-
-
-	// decomposition de vecteur de donnees
-	//cmat x = reshape(inputmod,80,inputmod.length()/80); 		// une matrice de 80 lignes et input.length()/80 colonnes,
-	cmat x = reshape(inputmod,64,inputmod.length()/48); 		// une matrice de 80 lignes et input.length()/80 colonnes,
-	//cout << " x = " << x.rows() << " , " << x.cols() << endl ; */
-
+	//********* Mettre les donnees sous format matricielle (Nfft, nSymbol)
+	cmat inputmod2(Nfft, nSymbol);
+	inputmod2 = reshape(input, Nfft, nSymbol);
+	cout << "Mat inputmod2 size = " << inputmod2.rows() << "  " << inputmod2.cols() << endl; 	
 	
-/*	cmat inputmod2(Nfft,1);
-	cmat y_clip(1,Nfft);
-	cvec ysim(Nfft);
+	//******* Calcul du gain pour la normalisation
+	//************** Signal temporel
+	cmat inputmod2_t = Q_iFFT * inputmod2;
+	cvec inputmod2_temp(Nfft*nSymbol);
+
+	int v = 0;
+	for(int i=0; i<Nfft; i++) 
+	{
+		for(int j=0; j<nSymbol; j++) 
+		{
+ 			inputmod2_temp(v) = inputmod2_t(i,j);
+			v = v + 1; 
+		}
+
+	}
+	
+	double gain = sqrt(mean(pow(abs(inputmod2_temp),2))); 	// mean power gain of input data
+	
+	//********** vecteur de sortie
+	cvec output(input.length());
+	
+	
 
 	// debut de la methode de la reduction  
 	for(int j=0; j<nSymbol; j++) 
 	{
-		for(int i=0; i<Nfft; i++) 				// il parcourt les lingnes ( ici c 64)
+		cvec inputmod3(Nfft);
+		cvec ysim(Nfft);
+		
+		//******** Recuperation du signal et Normalisation
+		for(int i=0; i<Nfft; i++) 		//parcourt les lingnes (64)
 		{
-	 		inputmod2(i) = inputmod(i,j);
+	 		inputmod3(i) = inputmod2(i,j)/gain;
 
 		}
+		cout << "length() de inputmod3 = " << inputmod3.length() << endl;
 		
-		cout << "length() de inputmod2 " << inputmod2.length() << endl;
+		//********** Domaine temporel
+		cvec x = Q_iFFT * inputmod3;
+		cout << "length() de x " << x.length() << endl;
 		
+		cvec y_clip = x;
 
-		cmat x = Q_iFFT * inputmod2;
-		cout << "length() de x " << x.rows() << " , " << x.cols()<< endl;
-		
-		y_clip = x;
-	
-		// récupérer les indices pour chaque valeur qui dépasse A_clip
-		ivec indice_sup = find((abs(y_clip))>A_clip);  
+		//Récupérer les indices pour chaque valeur qui dépasse A_clip
+		ivec indice_sup = find((abs(y_clip))>A_clip); 
+		 cout << " indice_sup 1 " << indice_sup << endl;
 		y_clip(indice_sup) = exp(z*arg(y_clip(indice_sup))) * A_clip;
 		
 		int iter = 0;
-		// initialisation de vecteur ysim
-		cmat theta = zeros_c(12,1);
 		
-		for(int i=0; i<12; i++) 			
+		//cmat theta = zeros_c(12, iter_max);
+	 	cmat theta = pow(abs(L.transpose() * L),-1) * L.transpose()*(y_clip - x);
+		cout << "length() de theta  " << theta.rows() << " " << theta.cols() << endl;
+
+		//domaine temporel
+		cmat res = Q_iFFT * H * theta;
+
+		// initialisation de vecteur ysim
+		for(int i=0; i<Nfft; i++) 				
 		{
-	 		theta(i,iter) = (pow((L.transpose() * L) , -1 )*L.transpose()*(y_clip - x));
+	 		ysim(i) =  x(i) + res (i,1);
 
 		}
-		
-		ysim = theta*H*Q_iFFT + x; 
+		cout << "length() de ysim " << ysim.length() << endl;
 
-		/*int test = 1;
-		
-		// initialisation de vecteur ysim
-		cmat theta = zeros_c(1,12);
-		ysim = theta*H*Q_iFFT + y; 
-	
-		// récupérer les indices pour chaque valeur qui dépasse A_clip
-		ivec indice_sup = find((abs(ysim))>A_clip);  
+		//Récupération des indices qui dépasse A_clip
+		indice_sup = find((abs(ysim))>A_clip);
+		cout << " indice_sup  " << indice_sup << endl;
 
 		// calculer l'erreur
-		vec eps = A_clip - abs(ysim(indice_sup));     
-                
+		vec eps = A_clip - abs(ysim(indice_sup));
+		cout << " eps " << eps.length() << endl;
 
+		//verifie le nbre de point restant 
+		int Nb_point = indice_sup.length();
+		int test = Nb_point > 0;
+		cout << " test " << test << endl;
+		
+		//critere d'arret
 		vec Crit = zeros(iter_max+2);
-		Crit(iter) = eps*eps; // parce que eps est un vecteur des entiers reels
+		Crit(iter) = eps*eps;
+		cout << " Crit " << Crit << endl;
+
+		cvec inputTR(Nfft);
 		
-		cvec Grad0;		 
-		cvec Grad_conj;
-		
-		while (test && iter <= iter_max && Crit(iter)>0)
+		//Optimisation
+		while (test)
 		{
 	
 			// calculer la SENS 
@@ -2203,96 +2215,78 @@ cvec tone_reserv_Grad_conj(const cvec &input)
 					jj = jj + 1;			
 				}
 	 		}
-					
-			cmat eps1(1,indice_sup.length()); // conversion de vecteur eps vers une matrice pour faciliter la multiplication
-			
+			cout << "length() de SENS " << SENS.rows() << " , " << SENS.cols()<< endl;		
+			cout << "Done " << endl;
+
+			// conversion de vecteur eps vers une matrice 
+			cmat eps1(indice_sup.length(),1); 
+
 			for (int n=0; n<indice_sup.length(); n++)
 			{ 
 				eps1(n) = eps(n); 
 			}
+			cout << "eps1 " << eps1.rows() << " " << eps1.cols() << endl;
+			cout << "eps1 Done " << endl;
 
-		 	cvec Grad;
-		 	Grad = -(eps1*SENS);  	// calculer de gradient
-				
-			//double P;             //P pour le gradient conjuguee 1
-			std::complex<double> P; //P pour le gradient conjuguee 2
-			if (iter==0)
-			{
-				P = 1;
-				Grad_conj = -0*Grad;
-			}
-			else
-			{
-				//P=real(conj(Grad)*Grad)/real(conj(Grad0)*Grad0);   // pour le gradient conjuguée 1	
-				P=(conj(Grad)*(Grad-Grad0))/sum(pow(abs(Grad0),2)); // pour le gradient conjuguée 2					  
-			}
-
-			Grad_conj=-Grad + P*Grad_conj; // calcul de gradient conjuguée
+		 	//Gradient
+		 	cmat Grad = -(SENS.transpose()*eps1);  	// calculer de gradient
+			cout << " Grad " << Grad << endl;
+			cout << "Done Grad " << endl;
 			
+			//Hessien matrice
+			cmat Hess = L.transpose()*L;		
+			cout << " Hess " <<  Hess << endl;
+			cout << "Done Hess " << endl;
 
-			cmat Grad_conj_mat(1,Grad_conj.length()); // conversion de vecteur eps vers une matrice pour faciliter la multiplication
-	
-			for (int n=0; n<Grad_conj.length(); n++)
-			{ 
-				Grad_conj_mat(n)=Grad_conj(n); 
-			}
+			//Delta
+			cmat delta = -inv(Hess)* Grad;
+			cout << " delta " <<  delta.rows() << " " << delta.cols() << endl;
+			cout << "Done delta " << endl;
 
+			//Theta rechercher
+			cmat Theta_recherche = theta + delta ;
+			cout << " Theta_recherche " <<  Theta_recherche.rows() << " " << Theta_recherche.cols() << endl;
+			cout << "Done Theta_recherche " << endl;
 
-			//vec Gain_conj="0.01:0.01:0.2";
-			vec Gain_conj = "0.00001:0.01:0.05";
-			vec fn(Gain_conj.length());
-	
-			for (int l=0; l<Gain_conj.length(); l++)
+			//Mise à jour du signal
+			cmat res2 = (H * Theta_recherche);
+			for(int i=0; i<Nfft; i++) 				
 			{
-				cmat theta_n=theta+Gain_conj(l)*Grad_conj_mat;
-				ysim=theta_n*H*Q_iFFT+y;
-				ivec indice_sup_conj=find((abs(ysim))>A_clip); // les max qui depassent A_clip pour le gain conjuguee
-				vec eps_conj=A_clip-abs(ysim(indice_sup_conj));    
-				fn(l)=sum(pow(eps_conj,2));
+	 			inputTR(i) = inputmod3(i) + res2(i);
+
 			}
-		
-			int ii;
-			double min_conj=min(fn,ii);
+			cout << " inputTR " <<  inputTR.length() << endl;
+			cout << "Done inputTR " << endl;
 
-			cmat theta_recherche=theta+Gain_conj(ii)*Grad_conj_mat;//calcul de theta_recherche
+			/// mettre à jour le vecteur ysim et calculer les nouveaux ecart
+			ysim = Q_iFFT * inputTR; 		// ajouter la correction au vecteur de donnée
+			indice_sup=find((abs(ysim))>A_clip); 	// chercher les indices des peak qui depassent A_clip
+			eps = A_clip-abs(ysim(indice_sup));  	// mise à jour de l'erreur eps
+			
+			cout << " EPS 3 " << eps << endl;
+			cout << " indice_sup 3 " << indice_sup << endl;
 
-			/// mettre à jour le vecteur ysim et calculer les nouveaux ecart///
-			ysim = theta_recherche*H*Q_iFFT+y; 		// ajouter la correction au vecteur de donnée
-			indice_sup=find((abs(ysim))>A_clip); 		// chercher les indices des peak qui depassent A_clip
-			eps=A_clip-abs(ysim(indice_sup));    		// mise à jour de l'erreur eps
 	
-			/// Calcul du Critère///	
-			double Critere=sum(pow(eps,2));
-			double decroissance_rel=1-Critere/Crit(iter);
-			test=((decroissance_rel>precision) && (Crit(iter)>Critere)); // verification de la condition de la boucle
-	
+			//Calcul du Critère
+			double Critere = sum(pow(eps,2));
+			test = (iter <= iter_max && indice_sup.length() == 0);
+			cout << " test " <<  test << endl;
+			cout << "Done test " << endl;
+
+			//Incremente le nbre d'iteration
 			iter=iter+1;
-			theta=theta_recherche;
+			cout << " iteration " <<  iter << endl;
+			cout << "Done iter " << endl;
+
+			theta = Theta_recherche;
 			Crit(iter)=Critere;
-			Grad0=Grad;
-			//cout << "iter====" <<iter << endl;
-		
-		} 	// la fin de la boucle while
-		cout << " ysim.length() " << ysim.length() << endl;
-		
-		//ajouter l'intervalle de garde	
-		cvec y_IT(80);
-
-		for (int m=0; m<Nfft; m++)
-		{
-			y_IT(m+16) = ysim(m);
-			if (m<16)  y_IT(m) = ysim(m+48);
+			cout << " Critere " <<  Critere << endl;
+			cout << " Crit  " << Crit << endl;
+			
 		}
-		
-		//reconstruire toute la trame;
-		for (int n=0; n<80; n++)
-			output(n+idd) = ysim(n); idd = idd + 80;
-			//output(n+idd) = y_IT(n); idd=idd+80;
-		cout << " output " << output.length() << endl;	
-
-	}// la fin de la boucle for j (j<Nombre de symbol OFDM)
-
-	//cout << "test fin" <<endl;
+		output = concat(output, inputTR);
+	}
+	
 	return output;	 
 }
 

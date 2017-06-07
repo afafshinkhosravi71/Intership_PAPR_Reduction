@@ -34,7 +34,7 @@ for i=1:length(HH);
     end
 end
 
-[nb_row nb_col] = size(H); 
+[nb_row, nb_col] = size(H); 
 nb_para = nb_col;
 
 L = Q_iFFT * H;
@@ -60,11 +60,13 @@ for ii = deb:fin;
     % ---------------------------------------------------------------------------------------------
     
     y_clip = x; 
-    indice_sup = find(abs(y_clip) > A_clip); 
+    indice_sup = find(abs(y_clip) > A_clip) 
     y_clip(indice_sup) = exp(1j*phase(y_clip(indice_sup))) .* A_clip;
     
     iter  = 1;   
-    Theta(:,iter) = ((L'*L)^(-1)*L'*(y_clip - x));
+    Theta(:,iter) = ((L'*L)^(-1)*L'*(y_clip - x)); %% Les moindres carrés ordinaires pour commencer
+    Theta(:,iter)
+    
     %Theta(:,iter) = zeros(nb_para,1);
     
     ysim = x + Q_iFFT * (H * Theta(:,iter));
@@ -81,6 +83,8 @@ for ii = deb:fin;
    
     indice_sup = find(abs(ysim) > A_clip);    
     eps = A_clip - abs(ysim(indice_sup)); Nb_point = length(indice_sup);
+    disp('size eps') 
+    size(eps)
     Crit(iter) = eps' * eps ;
     
     test = Nb_point > 0;
@@ -90,20 +94,32 @@ for ii = deb:fin;
      % ------------ Calcul du gradient et du Hessien � l'it�ration n�iter ---------------
 
        [SENS] = sensb(ysim, A_clip, L, nb_para, nFFTSize) ;    % Matrice des fonctions de sensibilit�
-
-       Grad = -(transpose(SENS) * eps)  ;            %  Calcul du Gradient       
+       disp('size SENS') 
+       size(SENS)
+       
+       Grad = -(transpose(SENS) * eps)  ;            %  Calcul du Gradient  *
+       disp('size Grad') 
+       size(Grad)
+       
        Hess  = (transpose(L) * L) ;              %  Calcul du Hessien 
-
+       disp('size Hess') 
+       size(Hess)
          % actualisation de l'�cart delta       
 
           delta = -inv(Hess) * Grad ;
+          disp('size delta') 
+          size(delta)
+          
           Theta_recherche = Theta(:,iter) + delta ;
+          disp('size Theta_recherche') 
+          size(Theta_recherche)
 
         % ------- Calcul des nouveaux �carts -----------
         
           inputiFFT_TR = inputiFFT + (H * Theta_recherche);
           ysim = Q_iFFT * (inputiFFT_TR); %           
-          indice_sup = find(abs(ysim) > A_clip); eps = A_clip - abs(ysim(indice_sup));
+          indice_sup = find(abs(ysim) > A_clip); 
+          eps = A_clip - abs(ysim(indice_sup));
           
           % -------- Calcul du crit�re ----------
 
